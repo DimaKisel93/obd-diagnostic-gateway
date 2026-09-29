@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// One continuous capture run (mock or real adapter).
+model DiagnosticSession {
+  id         String    @id @default(uuid())
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  adapter    String
+  vehicleVin String?
+  notes      String?
+  readings   TelemetryReading[]
+
+  @@map("diagnostic_sessions")
+}
+
+/// Single OBD PID sample stored during a session.
+model TelemetryReading {
+  id         String             @id @default(uuid())
+  sessionId  String
+  session    DiagnosticSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pid        String
+  name       String
+  value      Float
+  unit       String?
+  recordedAt DateTime           @default(now())
+
+  @@index([sessionId, recordedAt])
+  @@index([name, recordedAt])
+  @@map("telemetry_readings")
+}

@@ -8,7 +8,7 @@ NestJS-сервис, который подключается к автомоби
 
 | Слой     | Технологии                                                              |
 | -------- | ----------------------------------------------------------------------- |
-| Backend  | NestJS, TypeScript                                                      |
+| Backend  | NestJS, TypeScript, Prisma 7                                            |
 | Железо   | ELM327 (USB/Bluetooth), библиотека `elm327` (J2534 — опционально позже) |
 | База     | PostgreSQL                                                              |
 | Realtime | WebSocket (`@nestjs/websockets`)                                        |
@@ -20,18 +20,21 @@ NestJS-сервис, который подключается к автомоби
 
 ```
 ObdDiagnosticGateway/
-├── backend/          # NestJS API + OBD-модуль
-├── frontend/         # Vue live-дашборд (шаг 7)
-├── docker-compose.yml
+├── backend/             # NestJS API + OBD-модуль + Prisma
+├── frontend/            # Vue live-дашборд (шаг 7)
+├── docker-compose.yml   # PostgreSQL
 └── README.md
 ```
 
 ## Быстрый старт (после шага 1)
 
 ```bash
+docker compose up -d
 cd backend
-npm install
-npm run start:dev
+cp .env.example .env
+pnpm install
+pnpm prisma:migrate:deploy
+pnpm start:dev
 ```
 
 Проверка:
@@ -46,14 +49,17 @@ curl http://localhost:3000/api/health
 {
   "status": "ok",
   "service": "obd-diagnostic-gateway",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "database": "up"
 }
 ```
+
+Prisma Studio: `pnpm prisma:studio`
 
 ## Архитектура (целевая)
 
 ```
-[ELM327 / Mock] → ObdAdapter → TelemetryService → PostgreSQL
+[ELM327 / Mock] → ObdAdapter → TelemetryService → PostgreSQL (Prisma)
                                       ↓
                               REST + WebSocket → Vue Dashboard
 ```
