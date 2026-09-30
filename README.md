@@ -26,7 +26,7 @@ ObdDiagnosticGateway/
 └── README.md
 ```
 
-## Быстрый старт (после шага 1)
+## Быстрый старт
 
 ```bash
 docker compose up -d
@@ -41,17 +41,8 @@ pnpm start:dev
 
 ```bash
 curl http://localhost:3000/api/health
-```
-
-Ожидаемый ответ:
-
-```json
-{
-  "status": "ok",
-  "service": "obd-diagnostic-gateway",
-  "version": "0.1.0",
-  "database": "up"
-}
+curl http://localhost:3000/api/obd/status
+curl http://localhost:3000/api/obd/sample
 ```
 
 Prisma Studio: `pnpm prisma:studio`
