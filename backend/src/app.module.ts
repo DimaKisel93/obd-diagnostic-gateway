@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ObdModule } from './obd/obd.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     PrismaModule,
     ObdModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -34,9 +34,16 @@ pnpm start:dev
 | GET    | `/api/obd/status`     | Адаптер / connected        |
 | POST   | `/api/obd/connect`    | Подключить адаптер         |
 | POST   | `/api/obd/disconnect` | Отключить                  |
-| GET    | `/api/obd/sample`     | Живой сэмпл RPM/скорость/… |
+| GET    | `/api/obd/sample`        | Живой сэмпл RPM/скорость/… |
+| GET    | `/api/telemetry/status`  | Поллер: running / sessionId |
+| POST   | `/api/telemetry/start`   | Начать опрос + сессию      |
+| POST   | `/api/telemetry/stop`    | Остановить опрос           |
+| GET    | `/api/telemetry/session` | Активная diagnostic session |
+| GET    | `/api/telemetry/latest`  | Последние строки из PostgreSQL |
 
 ```bash
 curl http://localhost:3000/api/obd/status
 curl http://localhost:3000/api/obd/sample
+curl http://localhost:3000/api/telemetry/status
+curl "http://localhost:3000/api/telemetry/latest?limit=8"
 ```

@@ -42,8 +42,11 @@ pnpm start:dev
 ```bash
 curl http://localhost:3000/api/health
 curl http://localhost:3000/api/obd/status
-curl http://localhost:3000/api/obd/sample
+curl http://localhost:3000/api/telemetry/status
+curl "http://localhost:3000/api/telemetry/latest?limit=8"
 ```
+
+При `OBD_POLL_ENABLED=true` (по умолчанию) шлюз каждую секунду читает PID и пишет их в `telemetry_readings`.
 
 Prisma Studio: `pnpm prisma:studio`
 
