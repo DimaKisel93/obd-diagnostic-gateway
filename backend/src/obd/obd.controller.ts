@@ -2,8 +2,7 @@ import { Controller, Get, Post } from '@nestjs/common';
 import { ObdService } from './obd.service';
 
 /**
- * Temporary probe endpoints so step 3 is manually testable.
- * Full diagnostics API arrives in step 5.
+ * Adapter probe aliases. Canonical REST: GET /api/adapter, GET /api/live.
  */
 @Controller('obd')
 export class ObdController {

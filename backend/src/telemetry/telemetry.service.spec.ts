@@ -7,6 +7,9 @@ describe('TelemetryService', () => {
   let prisma: {
     diagnosticSession: {
       findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
     };
@@ -21,6 +24,9 @@ describe('TelemetryService', () => {
     prisma = {
       diagnosticSession: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockResolvedValue({
           id: 'session-1',
           adapter: 'mock',
@@ -83,5 +89,47 @@ describe('TelemetryService', () => {
       count: 2,
     });
     expect(prisma.telemetryReading.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists sessions with pagination', async () => {
+    prisma.diagnosticSession.findMany.mockResolvedValue([
+      { id: 'session-1', _count: { readings: 4 } },
+    ]);
+    prisma.diagnosticSession.count.mockResolvedValue(1);
+
+    const result = await service.listSessions({ status: 'active', skip: 0, take: 20 });
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(prisma.diagnosticSession.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { endedAt: null },
+        skip: 0,
+        take: 20,
+      }),
+    );
+  });
+
+  it('throws when session is missing', async () => {
+    await expect(service.getSession('missing')).rejects.toThrow(/not found/i);
+  });
+
+  it('filters history by name and pid', async () => {
+    prisma.diagnosticSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      _count: { readings: 0 },
+    });
+    prisma.telemetryReading.findMany.mockResolvedValue([]);
+    prisma.telemetryReading.count.mockResolvedValue(0);
+
+    await service.getHistory('session-1', { name: 'rpm', pid: '0c', skip: 0, take: 10 });
+    expect(prisma.telemetryReading.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sessionId: 'session-1',
+          name: 'rpm',
+          pid: '0C',
+        }),
+      }),
+    );
   });
 });

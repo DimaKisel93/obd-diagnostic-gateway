@@ -41,9 +41,10 @@ pnpm start:dev
 
 ```bash
 curl http://localhost:3000/api/health
-curl http://localhost:3000/api/obd/status
-curl http://localhost:3000/api/telemetry/status
-curl "http://localhost:3000/api/telemetry/latest?limit=8"
+curl http://localhost:3000/api/adapter
+curl http://localhost:3000/api/live
+curl "http://localhost:3000/api/sessions?status=active"
+curl "http://localhost:3000/api/live/snapshot"
 ```
 
 При `OBD_POLL_ENABLED=true` (по умолчанию) шлюз каждую секунду читает PID и пишет их в `telemetry_readings`.

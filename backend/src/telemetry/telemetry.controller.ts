@@ -3,8 +3,7 @@ import { TelemetryPollerService } from './telemetry-poller.service';
 import { TelemetryService } from './telemetry.service';
 
 /**
- * Probe endpoints for step 4 (polling + persist).
- * Full diagnostics REST API arrives in step 5.
+ * Poller aliases. Canonical REST: /api/poller, /api/live/history, /api/sessions.
  */
 @Controller('telemetry')
 export class TelemetryController {

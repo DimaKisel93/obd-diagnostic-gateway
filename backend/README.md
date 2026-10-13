@@ -26,24 +26,48 @@ pnpm start:dev
 | `pnpm prisma:studio`         | GUI для БД                      |
 | `pnpm test`                  | Unit-тесты                      |
 
-## API
+## REST API
 
-| Method | Path                  | Описание                   |
-| ------ | --------------------- | -------------------------- |
-| GET    | `/api/health`         | Health + статус БД         |
-| GET    | `/api/obd/status`     | Адаптер / connected        |
-| POST   | `/api/obd/connect`    | Подключить адаптер         |
-| POST   | `/api/obd/disconnect` | Отключить                  |
-| GET    | `/api/obd/sample`        | Живой сэмпл RPM/скорость/… |
-| GET    | `/api/telemetry/status`  | Поллер: running / sessionId |
-| POST   | `/api/telemetry/start`   | Начать опрос + сессию      |
-| POST   | `/api/telemetry/stop`    | Остановить опрос           |
-| GET    | `/api/telemetry/session` | Активная diagnostic session |
-| GET    | `/api/telemetry/latest`  | Последние строки из PostgreSQL |
+Базовый URL: `http://localhost:3000/api`
+
+### Health / adapter
+
+| Method | Path                  | Описание               |
+| ------ | --------------------- | ---------------------- |
+| GET    | `/health`             | Сервис + PostgreSQL    |
+| GET    | `/adapter`            | Адаптер + поллер       |
+| POST   | `/adapter/connect`    | Подключить ELM327/mock |
+| POST   | `/adapter/disconnect` | Отключить              |
+
+### Live / history
+
+| Method | Path                     | Описание                     |
+| ------ | ------------------------ | ---------------------------- |
+| GET    | `/live`                  | Сэмпл с адаптера (не из БД)  |
+| GET    | `/live/snapshot`         | Последние значения PID из БД |
+| GET    | `/live/history?limit=20` | Последние строки из БД       |
+
+### Sessions
+
+| Method | Path                                                          | Описание                                            |
+| ------ | ------------------------------------------------------------- | --------------------------------------------------- |
+| GET    | `/sessions?status=active\|closed\|all&skip=0&take=20`         | Список сессий                                       |
+| GET    | `/sessions/active`                                            | Открытая сессия или `null`                          |
+| GET    | `/sessions/:id`                                               | Сессия + `readingsCount`                            |
+| GET    | `/sessions/:id/history?name=rpm&pid=0C&from=&to=&skip=&take=` | История PID                                         |
+| POST   | `/sessions/:id/end`                                           | Закрыть сессию (остановит поллер, если это текущая) |
+
+### Poller
+
+| Method | Path            | Описание                        |
+| ------ | --------------- | ------------------------------- |
+| GET    | `/poller`       | `running`, `sessionId`, `ticks` |
+| POST   | `/poller/start` | Старт опроса + сессия           |
+| POST   | `/poller/stop`  | Стоп опроса                     |
 
 ```bash
-curl http://localhost:3000/api/obd/status
-curl http://localhost:3000/api/obd/sample
-curl http://localhost:3000/api/telemetry/status
-curl "http://localhost:3000/api/telemetry/latest?limit=8"
+curl http://localhost:3000/api/adapter
+curl http://localhost:3000/api/live
+curl "http://localhost:3000/api/sessions?status=active"
+curl "http://localhost:3000/api/sessions/<id>/history?name=rpm&take=10"
 ```
