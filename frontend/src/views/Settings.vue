@@ -133,40 +133,40 @@ function resetSettings() {
 
 <style scoped>
 .settings-view {
-  background: white;
+  background: var(--color-white);
   border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .view-header h2 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-top: 1rem;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-md);
 }
 
 .settings-section {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.25rem;
+  background: var(--color-indicator-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
 }
 
 .settings-section h3 {
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--spacing-sm) 0;
   font-size: 1.1rem;
-  color: #2c3e50;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 0.5rem;
+  color: var(--color-dark);
+  border-bottom: 2px solid var(--color-primary);
+  padding-bottom: var(--spacing-sm);
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .form-group:last-child {
@@ -176,58 +176,58 @@ function resetSettings() {
 .form-group label {
   display: block;
   font-size: 0.9rem;
-  color: #34495e;
-  margin-bottom: 0.4rem;
+  color: var(--color-medium);
+  margin-bottom: var(--spacing-xs);
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-light);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
 }
 
 .form-group input[type="checkbox"] {
   width: auto;
-  margin-right: 0.5rem;
+  margin-right: var(--spacing-sm);
 }
 
 .pid-checkboxes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  gap: var(--spacing-sm);
 }
 
 .pid-option {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   font-size: 0.9rem;
   cursor: pointer;
 }
 
 .form-actions {
   display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid #ecf0f1;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-light);
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
 }
 
 .btn-primary {
-  background: #3498db;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-white);
 }
 
 .btn-primary:hover {
@@ -235,11 +235,11 @@ function resetSettings() {
 }
 
 .btn-secondary {
-  background: #95a5a6;
-  color: white;
+  background: var(--color-medium);
+  color: var(--color-white);
 }
 
 .btn-secondary:hover {
-  background: #7f8c8d;
+  background: var(--color-light);
 }
 </style>

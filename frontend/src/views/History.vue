@@ -97,46 +97,46 @@ onMounted(() => {
 
 <style scoped>
 .history-view {
-  background: white;
+  background: var(--color-white);
   border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .view-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .view-header h2 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .filters {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   align-items: center;
 }
 
 .filters select,
 .filters input {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-light);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
 }
 
 .btn {
-  padding: 0.5rem 1rem;
-  background: #3498db;
-  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+  color: var(--color-white);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -146,7 +146,7 @@ onMounted(() => {
 }
 
 .chart-container {
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-lg);
 }
 
 .data-table {
@@ -160,25 +160,25 @@ onMounted(() => {
 
 .data-table th,
 .data-table td {
-  padding: 0.75rem;
+  padding: var(--spacing-md);
   text-align: left;
-  border-bottom: 1px solid #ecf0f1;
+  border-bottom: 1px solid var(--color-light);
 }
 
 .data-table th {
-  background: #f8f9fa;
+  background: var(--color-indicator-bg);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
+  background: var(--color-indicator-bg);
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: #7f8c8d;
+  color: var(--color-medium);
   font-style: italic;
 }
 </style>

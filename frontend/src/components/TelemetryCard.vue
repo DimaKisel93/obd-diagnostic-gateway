@@ -26,7 +26,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, withDefaults } from 'vue'
+import { TELEMETRY_CONSTANTS } from '../constants'
 
 interface Props {
   pid: string
@@ -34,6 +35,8 @@ interface Props {
   label: string
   unit: string
 }
+
+const { temperature: tempRange, rpm: rpmRange, speed: speedRange } = TELEMETRY_CONSTANTS
 
 const props = withDefaults(defineProps<Props>(), {
   value: 0,
@@ -64,7 +67,7 @@ const trendClass = computed(() => {
 
 const trendIcon = computed(() => {
   if (props.value === null) return ''
-  return props.value >= 0 ? '↑' : '↓'
+  return props.value >= 0 ? TELEMETRY_CONSTANTS.trendUp : TELEMETRY_CONSTANTS.trendDown
 })
 
 const trendValue = computed(() => {
@@ -76,28 +79,28 @@ const isGood = computed(() => {
   if (props.value === null) return false
   if (props.pid === '05' || props.pid === '0F') {
     // Temperature: reasonable range 40-120°C
-    return props.value >= 40 && props.value <= 120
+    return props.value >= tempRange.min && props.value <= tempRange.max
   } else if (props.pid === '0C') {
     // RPM: reasonable range 500-8000
-    return props.value >= 500 && props.value <= 8000
+    return props.value >= rpmRange.min && props.value <= rpmRange.max
   } else if (props.pid === '0D') {
     // Speed: reasonable range 0-250
-    return props.value >= 0 && props.value <= 250
+    return props.value >= speedRange.min && props.value <= speedRange.max
   }
   return true
 })
 
 const qualityText = computed(() => {
-  return isGood.value ? '✓' : '✗'
+  return isGood.value ? TELEMETRY_CONSTANTS.trendUp : TELEMETRY_CONSTANTS.trendDown
 })
 </script>
 
 <style scoped>
 .telemetry-card {
-  background: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--color-telemetry-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
   overflow: hidden;
@@ -105,29 +108,29 @@ const qualityText = computed(() => {
 
 .telemetry-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .telemetry-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-xs);
 }
 
 .telemetry-header h3 {
   margin: 0;
   font-size: 1rem;
-  color: #2c3e50;
+  color: var(--color-telemetry-title);
   font-weight: 600;
 }
 
 .pid {
   font-size: 0.75rem;
-  color: #7f8c8d;
-  background: #f5f7fa;
+  color: var(--color-medium);
+  background: var(--color-light);
   padding: 0.2rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .telemetry-value {
@@ -140,12 +143,12 @@ const qualityText = computed(() => {
 .value {
   font-size: 2rem;
   font-weight: bold;
-  color: #2c3e50;
+  color: var(--color-telemetry-value);
 }
 
 .unit {
   font-size: 0.9rem;
-  color: #7f8c8d;
+  color: var(--color-medium);
 }
 
 .telemetry-trend {
@@ -157,11 +160,11 @@ const qualityText = computed(() => {
 }
 
 .trend-up {
-  color: #27ae60;
+  color: var(--color-trend-up);
 }
 
 .trend-down {
-  color: #e74c3c;
+  color: var(--color-trend-down);
 }
 
 .trend-value {
@@ -176,12 +179,12 @@ const qualityText = computed(() => {
   font-size: 0.75rem;
   display: inline-block;
   padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  background-color: #e74c3c;
-  color: white;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-quality-bad);
+  color: var(--color-white);
 }
 
 .quality-indicator.good {
-  background-color: #27ae60;
+  background-color: var(--color-quality-good);
 }
 </style>

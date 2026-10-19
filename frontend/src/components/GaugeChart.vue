@@ -7,7 +7,7 @@
           class="gauge-background"
           d="M 10,80 
              A 35,35 0 0,1 90,80"
-          stroke="#ecf0f1"
+          stroke="var(--color-light)"
           stroke-width="10"
           fill="none"
         />
@@ -29,7 +29,7 @@
           cx="50" 
           cy="80" 
           r="5" 
-          fill="#2c3e50"
+          fill="var(--color-dark)"
         />
         
         <!-- Value text -->
@@ -38,7 +38,7 @@
           y="95" 
           text-anchor="middle"
           class="gauge-value-text"
-          fill="#2c3e50"
+          fill="var(--color-dark)"
         >
           {{ formattedValue }}
         </text>
@@ -49,7 +49,7 @@
           y="110" 
           text-anchor="middle"
           class="gauge-label-text"
-          fill="#7f8c8d"
+          fill="var(--color-medium)"
         >
           {{ label }}
         </text>
@@ -59,8 +59,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ref } from 'vue'
+import { computed, withDefaults } from 'vue'
+import { DEFAULT_MAX } from '../constants'
 
 interface Props {
   value: number | null
@@ -73,7 +73,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   value: 0,
   min: 0,
-  max: 100,
+  max: DEFAULT_MAX,
   label: '',
   size: 200,
 })
@@ -100,9 +100,9 @@ const arcEndY = computed(() => {
 // Color based on value
 const gaugeColor = computed(() => {
   const normalized = angle.value / 180
-  if (normalized < 0.3) return '#2ecc71' // Green
-  if (normalized < 0.7) return '#f39c12' // Yellow
-  return '#e74c3c' // Red
+  if (normalized < 0.3) return 'var(--color-success)' 
+  if (normalized < 0.7) return 'var(--color-warning)' 
+  return 'var(--color-error)' 
 })
 
 const formattedValue = computed(() => {
@@ -116,7 +116,7 @@ const formattedValue = computed(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem;
+  padding: var(--spacing-md);
 }
 
 .gauge-wrapper {

@@ -78,40 +78,40 @@ function endSession(id: number) {
 
 <style scoped>
 .sessions-view {
-  background: white;
+  background: var(--color-white);
   border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .view-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
 }
 
 .view-header h2 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .btn {
-  padding: 0.5rem 1rem;
+  padding: var(--spacing-sm) var(--spacing-md);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .btn-primary {
-  background: #3498db;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-white);
 }
 
 .btn-primary:hover {
@@ -120,16 +120,16 @@ function endSession(id: number) {
 
 .btn-secondary {
   background: #95a5a6;
-  color: white;
+  color: var(--color-white);
 }
 
 .btn-secondary:hover {
-  background: #7f8c8d;
+  background: var(--color-medium);
 }
 
 .btn-danger {
-  background: #e74c3c;
-  color: white;
+  background: var(--color-error);
+  color: var(--color-white);
 }
 
 .btn-danger:hover {
@@ -144,13 +144,13 @@ function endSession(id: number) {
 .session-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .session-card {
-  border: 1px solid #ecf0f1;
-  border-radius: 8px;
-  padding: 1rem;
+  border: 1px solid var(--color-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
   background: #fafafa;
 }
 
@@ -158,30 +158,30 @@ function endSession(id: number) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-sm);
 }
 
 .session-header h3 {
   margin: 0;
   font-size: 1.2rem;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .status {
   padding: 0.2rem 0.6rem;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .status.active {
   background: #d5f5e3;
-  color: #27ae60;
+  color: var(--color-trend-up);
 }
 
 .session-info {
   color: #34495e;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-sm);
 }
 
 .session-info p {
@@ -190,13 +190,13 @@ function endSession(id: number) {
 
 .session-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: #7f8c8d;
+  color: var(--color-medium);
   font-style: italic;
 }
 </style>

@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, withDefaults } from 'vue'
 
 interface Props {
   state?: 'connected' | 'disconnected' | 'connecting' | 'error'
@@ -36,10 +36,10 @@ const statusText = computed(() => {
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f8f9fa;
-  border-radius: 20px;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-indicator-bg);
+  border-radius: var(--radius-full);
   font-size: 0.9rem;
 }
 
@@ -51,22 +51,22 @@ const statusText = computed(() => {
 }
 
 .dot.active {
-  background-color: #2ecc71;
+  background-color: var(--color-success);
   box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
 }
 
 .dot.error {
-  background-color: #e74c3c;
+  background-color: var(--color-error);
   box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
 }
 
 .dot.connecting {
-  background-color: #f39c12;
+  background-color: var(--color-warning);
   animation: pulse 1.5s infinite;
 }
 
 .status-text {
-  color: #2c3e50;
+  color: var(--color-dark);
   font-weight: 500;
 }
 

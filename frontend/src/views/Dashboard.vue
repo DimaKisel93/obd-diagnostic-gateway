@@ -32,9 +32,7 @@ import TelemetryCard from '../components/TelemetryCard.vue'
 
 const obdStore = useOBDStore()
 const telemetryData = ref<Record<string, number>>({})
-
-// PIDs we want to display
-const DEFAULT_LIVE_PIDS = ['0C', '0D', '05', '11'] // RPM, Speed, Coolant Temp, Throttle
+let unsubscribe: (() => void) | null = null
 
 const isConnected = computed(() => obdStore.status.connected)
 const connectionText = computed(() => {
@@ -77,58 +75,53 @@ function getPidUnit(pid: string): string {
 }
 
 onMounted(() => {
-  // Subscribe to live updates from the store
-  obdStore.$subscribe((mutation, state) => {
-    if (mutation.type === 'direct' && mutation.storeId === 'obd') {
-      // Update telemetry data when live readings change
-      if (state.latestReadings && Array.isArray(state.latestReadings)) {
-        const newData: Record<string, number> = {}
-        state.latestReadings.forEach(reading => {
-          if (reading.value !== null && reading.value !== undefined) {
-            newData[reading.pid] = Number(reading.value)
-          }
-        })
-        telemetryData.value = newData
+  unsubscribe = obdStore.$subscribe((mutation, state) => {
+    if (state.latestReadings && Array.isArray(state.latestReadings)) {
+      const newData: Record<string, number> = {}
+      for (const reading of state.latestReadings) {
+        if (reading.value != null) {
+          newData[reading.pid] = Number(reading.value)
+        }
       }
+      telemetryData.value = newData
     }
   })
-  
-  // Initialize connection
+
   obdStore.initializeConnection()
 })
 
 onUnmounted(() => {
-  // Cleanup subscription if needed
+   unsubscribe?.()
 })
 </script>
 
 <style scoped>
 .dashboard {
-  background: white;
+  background: var(--color-white);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+  box-shadow: var(--shadow-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
 }
 
 .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .dashboard-header h2 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--color-dark);
 }
 
 .connection-status {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   font-size: 0.9rem;
 }
 
@@ -136,24 +129,24 @@ onUnmounted(() => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: #e74c3c;
+  background-color: var(--color-error);
   transition: background-color 0.3s;
 }
 
 .status-indicator.connected {
-  background-color: #2ecc71;
+  background-color: var(--color-success);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  gap: var(--spacing-lg);
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: #7f8c8d;
+  color: var(--color-medium);
   font-style: italic;
 }
 </style>

@@ -44,17 +44,17 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f5f7fa;
+  background-color: var(--color-light);
 }
 
 header {
-  background-color: #2c3e50;
-  color: white;
-  padding: 1rem 2rem;
+  background-color: var(--color-dark);
+  color: var(--color-white);
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-md);
 }
 
 header h1 {
@@ -64,14 +64,14 @@ header h1 {
 
 nav {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 nav a {
-  color: #ecf0f1;
+  color: var(--color-light);
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
   transition: all 0.3s;
 }
 
@@ -80,21 +80,21 @@ nav a:hover {
 }
 
 nav a.router-link-active {
-  background-color: #3498db;
+  background-color: var(--color-primary);
 }
 
 main {
   flex: 1;
-  padding: 2rem;
+  padding: var(--spacing-lg);
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
 }
 
 footer {
-  background-color: #2c3e50;
-  color: white;
-  padding: 0.5rem 2rem;
+  background-color: var(--color-dark);
+  color: var(--color-white);
+  padding: var(--spacing-sm) var(--spacing-lg);
   text-align: center;
   font-size: 0.9rem;
 }

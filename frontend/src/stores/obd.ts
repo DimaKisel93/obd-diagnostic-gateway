@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose, ComputedRef } from 'vue'
 import type { Ref } from 'vue'
 
 // Types for the OBD store state
@@ -40,32 +40,29 @@ const initialState: ObdStatus = {
   lastError: null,
 }
 
-// Type for the store's return value
+const createInitialState = (): ObdStatus => ({ ...initialState })
+
 interface OBDStoreState {
-  // State
   status: Ref<ObdStatus>
   latestReadings: Ref<ObdReading[]>
   liveTelemetry: Ref<LiveTelemetry>
-
-  // Getters
-  isConnected: ReturnType<typeof computed<boolean>>
-  connectionState: ReturnType<typeof computed<ObdStatus['state']>>
-  getLastError: ReturnType<typeof computed<string | null>>
-  getReadings: ReturnType<typeof computed<ObdReading[]>>
-  getLiveData: ReturnType<typeof computed<LiveTelemetry>>
+  history: Ref<ObdReading[]>
+  isConnected: ComputedRef<boolean>
+  connectionState: ComputedRef<ObdStatus['state']>
+  getLastError: ComputedRef<string | null>
+  getReadings: ComputedRef<ObdReading[]>
+  getLiveData: ComputedRef<LiveTelemetry>
+  getHistory: ComputedRef<ObdReading[]>
   getPidLabel: (pid: string) => string
   getPidUnit: (pid: string) => string
 
-  // Actions
   initializeConnection: () => Promise<void>
   disconnect: () => void
   fetchHistory: (pid: string, limit?: number) => Promise<void>
 }
-
-// Create the store
 export const useOBDStore = defineStore('obd', (): OBDStoreState => {
-  // State
-  const status = ref<ObdStatus>(initialState)
+
+  const status = ref<ObdStatus>(createInitialState())
   const latestReadings = ref<ObdReading[]>([])
   const liveTelemetry = ref<LiveTelemetry>({
     rpm: null,
@@ -75,20 +72,25 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     load: null,
     timestamp: Date.now(),
   })
+  const history = ref<ObdReading[]>([])
 
-  // Getters
+  let stopSimulation: (() => void) | null = null
+
   const isConnected = computed(() => status.value.connected)
   const connectionState = computed(() => status.value.state)
   const getLastError = computed(() => status.value.lastError)
   const getReadings = computed(() => latestReadings.value)
   const getLiveData = computed(() => ({ ...liveTelemetry.value }))
+  const getHistory = computed(() => history.value)
 
-  // Actions
-  async initializeConnection() {
+  const initializeConnection = async () => {
+
+    stopSimulation?.()
+
     try {
       // Simulate connection - in production this would connect to WebSocket
       status.value = {
-        ...initialState,
+        ...createInitialState(),
         state: 'connecting',
       }
 
@@ -102,47 +104,54 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
         lastError: null,
       }
 
-      // Mock live data after connection
-      simulateLiveData()
+      stopSimulation = simulateLiveData()
     } catch (error) {
+      stopSimulation?.()
+      stopSimulation = null
       status.value = {
-        ...initialState,
+        ...createInitialState(),
         state: 'error',
         lastError: error instanceof Error ? error.message : String(error),
       }
     }
   }
 
-  async disconnect() {
+  const disconnect = () => {
+    stopSimulation?.()
+    stopSimulation = null
+
     status.value = {
-      ...initialState,
+      ...createInitialState(),
       adapter: 'mock',
+    }
+
+    latestReadings.value = []
+    liveTelemetry.value = {
+      rpm: null,
+      speed: null,
+      coolantTemp: null,
+      throttle: null,
+      load: null,
+      timestamp: Date.now(),
     }
   }
 
-  // Subscribe to changes
-  const $subscribe: Parameters<ReturnType<typeof defineStore>['$subscribe']>[0] = (
-    callback,
-    options,
-  ) => {
-    return { unsubscribe: fn() => {} }
-  }
-
-  // Mock live data simulation
-  const simulateLiveData = () => {
-    // Set up interval to update telemetry
+  const simulateLiveData = (): (() => void) => {
     const intervalId = setInterval(() => {
       // Generate mock data
       const rpm = Math.floor(800 + Math.random() * 4000) // 800-4800 RPM
       const speed = Math.floor(20 + Math.random() * 120) // 20-140 km/h
       const coolantTemp = 90 + Math.random() * 20 // 90-110°C
       const throttle = Math.floor(10 + Math.random() * 40) // 10-50%
+      const load = Math.floor(20 + Math.random() * 50) // 20-70%
+      const timestamp = Date.now()
 
       latestReadings.value = [
-        { pid: '0C', value: rpm, timestamp: Date.now() },
-        { pid: '0D', value: speed, timestamp: Date.now() },
-        { pid: '05', value: Math.round(coolantTemp), timestamp: Date.now() },
-        { pid: '11', value: throttle, timestamp: Date.now() },
+        { pid: '0C', value: rpm, timestamp },
+        { pid: '0D', value: speed, timestamp },
+        { pid: '05', value: Math.round(coolantTemp), timestamp },
+        { pid: '11', value: throttle, timestamp },
+        { pid: '04', value: load, timestamp },
       ]
 
       liveTelemetry.value = {
@@ -150,17 +159,15 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
         speed,
         coolantTemp: Math.round(coolantTemp),
         throttle,
-        load: Math.floor(20 + Math.random() * 50),
-        timestamp: Date.now(),
+        load,
+        timestamp,
       }
     }, 1000)
-
-    // Cleanup on store reset
     return () => clearInterval(intervalId)
   }
 
   // Fetch recent history from backend
-  async fetchHistory(pid: string, limit: number = 60) {
+  const fetchHistory = async (pid: string, limit: number = 60) => {
     try {
       // Would fetch from API in production
       const mockData: ObdReading[] = []
@@ -171,7 +178,7 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
           timestamp: Date.now() - i * 1000,
         })
       }
-      latestReadings.value = mockData
+      history.value = mockData
     } catch (error) {
       console.error('Failed to fetch history:', error)
     }
@@ -207,11 +214,17 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     return units[pid] || ''
   }
 
+  onScopeDispose(() => {
+    stopSimulation?.()
+    stopSimulation = null
+  })
+
   return {
     // State
     status,
     latestReadings,
     liveTelemetry,
+    history,
 
     // Getters
     isConnected,
@@ -219,6 +232,7 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     getLastError,
     getReadings,
     getLiveData,
+    getHistory,
     getPidLabel,
     getPidUnit,
 
@@ -228,6 +242,3 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     fetchHistory,
   }
 })
-
-// Helper type for the store
-export type { ObdStatus, ObdReading, LiveTelemetry, PidValue }

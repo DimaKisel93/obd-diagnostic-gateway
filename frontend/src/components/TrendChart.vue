@@ -23,7 +23,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, withDefaults } from 'vue'
+import { DEFAULT_MAX, DEFAULT_TIME } from '../constants'
 
 interface Props {
   title: string
@@ -34,22 +35,28 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'Chart',
-  data: [],
-  max: 100,
-  time: '1 min',
+  data: () => [],
+  max: DEFAULT_MAX,
+  time: DEFAULT_TIME,
 })
 
 const hasData = computed(() => props.data.length > 0)
 
-const isWarning = computed(() => (value: number) => {
+const isWarning = (value: number) => {
+  if (props.max <= 0) {
+    return false;
+  }
   const normalized = value / props.max
   return normalized >= 0.6 && normalized < 0.85
-})
+}
 
-const isDanger = computed(() => (value: number) => {
+const isDanger = (value: number) => {
+  if (props.max <= 0) {
+    return false;
+  }
   const normalized = value / props.max
   return normalized >= 0.85
-})
+}
 
 const formattedTime = computed(() => {
   return props.time
@@ -58,28 +65,28 @@ const formattedTime = computed(() => {
 
 <style scoped>
 .chart-container {
-  background: white;
+  background: var(--color-white);
   border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-md);
 }
 
 .chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-sm);
 }
 
 .chart-header h3 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--color-dark);
   font-size: 1rem;
 }
 
 .chart-time {
   font-size: 0.8rem;
-  color: #7f8c8d;
+  color: var(--color-medium);
 }
 
 .chart-content {
@@ -101,18 +108,18 @@ const formattedTime = computed(() => {
 
 .bar {
   flex: 1;
-  background-color: #3498db;
-  border-radius: 2px 2px 0 0;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   min-height: 4px;
   transition: height 0.3s, background-color 0.3s;
 }
 
 .bar.warning {
-  background-color: #f39c12;
+  background-color: var(--color-warning);
 }
 
 .bar.danger {
-  background-color: #e74c3c;
+  background-color: var(--color-error);
 }
 
 .no-data {
@@ -121,7 +128,7 @@ const formattedTime = computed(() => {
   justify-content: center;
   height: 150px;
   width: 100%;
-  color: #7f8c8d;
+  color: var(--color-medium);
   font-style: italic;
 }
 </style>
