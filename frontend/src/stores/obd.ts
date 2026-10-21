@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, onScopeDispose, ComputedRef } from 'vue'
 import type { Ref } from 'vue'
+import { DEFAULT_MONITORED_PIDS, PID_OPTIONS, SUPPORTED_PIDS } from '../constants'
 
 // Types for the OBD store state
 export interface ObdStatus {
@@ -42,11 +43,41 @@ const initialState: ObdStatus = {
 
 const createInitialState = (): ObdStatus => ({ ...initialState })
 
+const initialMonitoredPids = [...DEFAULT_MONITORED_PIDS]
+
+const MONITORED_PIDS_STORAGE_KEY = 'obd.monitoredPids'
+
+const loadPersistedPids = (): string[] => {
+  if (typeof window === 'undefined') return [...initialMonitoredPids]
+
+  try {
+    const raw = window.localStorage.getItem(MONITORED_PIDS_STORAGE_KEY)
+    if (!raw) return [...initialMonitoredPids]
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return [...initialMonitoredPids]
+
+    const valid = parsed.filter(
+      (pid): pid is string => typeof pid === 'string' && SUPPORTED_PIDS.includes(pid)
+    )
+    return [...new Set(valid)]
+  } catch {
+    return [...initialMonitoredPids]
+  }
+}
+
+const persistMonitoredPids = (pids: string[]): void => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(MONITORED_PIDS_STORAGE_KEY, JSON.stringify(pids))
+ 
+}
+
 interface OBDStoreState {
   status: Ref<ObdStatus>
   latestReadings: Ref<ObdReading[]>
   liveTelemetry: Ref<LiveTelemetry>
   history: Ref<ObdReading[]>
+  monitoredPids: Ref<string[]>
   isConnected: ComputedRef<boolean>
   connectionState: ComputedRef<ObdStatus['state']>
   getLastError: ComputedRef<string | null>
@@ -59,6 +90,8 @@ interface OBDStoreState {
   initializeConnection: () => Promise<void>
   disconnect: () => void
   fetchHistory: (pid: string, limit?: number) => Promise<void>
+  setMonitoredPids: (pids: string[]) => void
+  resetMonitoredPids: () => void
 }
 export const useOBDStore = defineStore('obd', (): OBDStoreState => {
 
@@ -73,8 +106,21 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     timestamp: Date.now(),
   })
   const history = ref<ObdReading[]>([])
+  const monitoredPids = ref<string[]>(loadPersistedPids())
 
   let stopSimulation: (() => void) | null = null
+  let runSimulationTick: (() => void) | null = null
+
+  const setMonitoredPids = (pids: string[]) => {
+
+    monitoredPids.value = [...pids]
+    persistMonitoredPids(monitoredPids.value)
+    runSimulationTick?.()
+  }
+
+  const resetMonitoredPids = () => {
+    setMonitoredPids([...initialMonitoredPids])
+  }
 
   const isConnected = computed(() => status.value.connected)
   const connectionState = computed(() => status.value.state)
@@ -137,33 +183,64 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
   }
 
   const simulateLiveData = (): (() => void) => {
-    const intervalId = setInterval(() => {
-      // Generate mock data
-      const rpm = Math.floor(800 + Math.random() * 4000) // 800-4800 RPM
-      const speed = Math.floor(20 + Math.random() * 120) // 20-140 km/h
-      const coolantTemp = 90 + Math.random() * 20 // 90-110°C
-      const throttle = Math.floor(10 + Math.random() * 40) // 10-50%
-      const load = Math.floor(20 + Math.random() * 50) // 20-70%
-      const timestamp = Date.now()
+    const tick = () => {
+      const pidsToSimulate = monitoredPids.value
+      const readings = []
+      const telemetry: LiveTelemetry = { rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() }
 
-      latestReadings.value = [
-        { pid: '0C', value: rpm, timestamp },
-        { pid: '0D', value: speed, timestamp },
-        { pid: '05', value: Math.round(coolantTemp), timestamp },
-        { pid: '11', value: throttle, timestamp },
-        { pid: '04', value: load, timestamp },
-      ]
+      for (const pid of pidsToSimulate) {
+        let value: number
 
-      liveTelemetry.value = {
-        rpm,
-        speed,
-        coolantTemp: Math.round(coolantTemp),
-        throttle,
-        load,
-        timestamp,
+        if (pid === '0C') {
+          // Engine RPM
+          value = Math.floor(800 + Math.random() * 4000)
+        } else if (pid === '0D') {
+          // Vehicle Speed
+          value = Math.floor(20 + Math.random() * 120)
+        } else if (pid === '05') {
+          // Coolant Temp
+          value = Math.round(90 + Math.random() * 20)
+        } else if (pid === '11') {
+          // Throttle Position
+          value = Math.floor(10 + Math.random() * 40)
+        } else if (pid === '04') {
+          // Engine Load
+          value = Math.floor(20 + Math.random() * 50)
+        } else if (pid === '0B') {
+          // Intake MAP
+          value = Math.round(30 + Math.random() * 70)
+        } else if (pid === '0F') {
+          // Intake Air Temp
+          value = Math.round(20 + Math.random() * 30)
+        } else if (pid === '10') {
+          // MAF Air Flow
+          value = Math.round(0.2 + Math.random() * 1.8)
+        } else {
+          continue
+        }
+
+        readings.push({ pid, value, timestamp: Date.now() })
+
+        switch (pid) {
+          case '0C': telemetry.rpm = value; break
+          case '0D': telemetry.speed = value; break
+          case '05': telemetry.coolantTemp = value; break
+          case '11': telemetry.throttle = value; break
+          case '04': telemetry.load = value; break
+        }
       }
-    }, 1000)
-    return () => clearInterval(intervalId)
+
+      latestReadings.value = readings
+      liveTelemetry.value = telemetry
+    }
+
+    runSimulationTick = tick
+
+    const intervalId = setInterval(tick, 1000)
+    return () => {
+      clearInterval(intervalId)
+      runSimulationTick = null
+    }
   }
 
   // Fetch recent history from backend
@@ -186,32 +263,12 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
 
   // Get human-readable label for PID
   const getPidLabel = (pid: string): string => {
-    const labels: Record<string, string> = {
-      '0C': 'Engine RPM',
-      '0D': 'Vehicle Speed',
-      '05': 'Coolant Temperature',
-      '11': 'Throttle Position',
-      '04': 'Engine Load',
-      '0B': 'Intake MAP',
-      '0F': 'Intake Air Temperature',
-      '10': 'MAF Air Flow',
-    }
-    return labels[pid] || pid
+    return PID_OPTIONS.find((option) => option.value === pid)?.label ?? pid
   }
 
   // Get unit for PID
   const getPidUnit = (pid: string): string => {
-    const units: Record<string, string> = {
-      '0C': 'RPM',
-      '0D': 'km/h',
-      '05': '°C',
-      '11': '%',
-      '04': '%',
-      '0B': 'kPa',
-      '0F': '°C',
-      '10': 'g/s',
-    }
-    return units[pid] || ''
+    return PID_OPTIONS.find((option) => option.value === pid)?.unit ?? ''
   }
 
   onScopeDispose(() => {
@@ -225,6 +282,7 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     latestReadings,
     liveTelemetry,
     history,
+    monitoredPids,
 
     // Getters
     isConnected,
@@ -240,5 +298,7 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
     initializeConnection,
     disconnect,
     fetchHistory,
+    setMonitoredPids,
+    resetMonitoredPids,
   }
 })

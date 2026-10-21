@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, withDefaults } from 'vue'
+import { computed } from 'vue'
 import { DEFAULT_MAX, DEFAULT_TIME } from '../constants'
 
 interface Props {

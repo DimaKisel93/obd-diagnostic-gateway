@@ -70,15 +70,27 @@
       
       <div class="settings-section">
         <h3>PIDs to Monitor</h3>
+        <div class="pid-toolbar">
+          <span class="pid-counter" :class="{ active: selectedCount > 0 }">
+            {{ selectedCount }} / {{ pidOptions.length }} selected
+          </span>
+          <button @click="selectAll" class="btn btn-small">Select All</button>
+          <button @click="clearAll" class="btn btn-small">Clear</button>
+        </div>
         <div class="pid-checkboxes">
-          <label v-for="pid in pidOptions" :key="pid.value" class="pid-option">
-            <input type="checkbox" :value="pid.value" v-model="monitorPids" />
-            <span>{{ pid.label }}</span>
+          <label v-for="option in pidOptions" :key="option.value" class="pid-option">
+            <input type="checkbox" :value="option.value" v-model="selectedPids" />
+            <span class="pid-label">{{ option.label }}</span>
+            <span class="pid-code">{{ option.value }}</span>
           </label>
         </div>
       </div>
     </div>
     
+    <transition name="toast">
+      <div v-if="toast.visible" class="toast">{{ toast.message }}</div>
+    </transition>
+
     <div class="form-actions">
       <button @click="saveSettings" class="btn btn-primary">Save Settings</button>
       <button @click="resetSettings" class="btn btn-secondary">Reset to Defaults</button>
@@ -87,7 +99,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive, computed } from 'vue'
+import { useOBDStore } from '../stores/obd'
+import { PID_OPTIONS } from '../constants'
+
+const obdStore = useOBDStore()
 
 const adapterMode = ref('mock')
 const port = ref('')
@@ -97,25 +113,42 @@ const pollInterval = ref(1000)
 const dbHost = ref('localhost')
 const dbPort = ref(5432)
 const dbName = ref('obd_gateway')
-const monitorPids = ref(['0C', '0D', '05', '11'])
 
-const pidOptions = [
-  { value: '0C', label: 'Engine RPM' },
-  { value: '0D', label: 'Vehicle Speed' },
-  { value: '05', label: 'Engine Coolant Temp' },
-  { value: '04', label: 'Engine Load' },
-  { value: '0B', label: 'Intake MAP' },
-  { value: '0F', label: 'Intake Air Temp' },
-  { value: '11', label: 'Throttle Position' },
-  { value: '10', label: 'MAF Air Flow' },
-]
+const pidOptions = PID_OPTIONS
+
+const selectedPids = computed<string[]>({
+  get: () => [...obdStore.monitoredPids],
+  set: (pids: string[]) => obdStore.setMonitoredPids(pids),
+})
+
+const selectedCount = computed(() => selectedPids.value.length)
+
+function selectAll() {
+  selectedPids.value = pidOptions.map((option) => option.value)
+}
+
+function clearAll() {
+  selectedPids.value = []
+}
+
+const toast = reactive({ visible: false, message: '' })
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string) {
+  toast.message = message
+  toast.visible = true
+
+  if (toastTimer !== null) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.visible = false
+    toastTimer = null
+  }, 3000)
+}
 
 function saveSettings() {
-  alert('Settings saved:\n' + 
-        `Adapter: ${adapterMode.value}\n` +
-        `Auto-connect: ${autoConnect.value}\n` +
-        `Poll interval: ${pollInterval.value}ms\n` +
-        `PIDs: ${monitorPids.value.join(', ')}`)
+  obdStore.setMonitoredPids([...selectedPids.value])
+  const pids = selectedPids.value.join(', ') || 'none'
+  showToast(`Settings saved - monitoring ${selectedCount.value} PID(s): ${pids}`)
 }
 
 function resetSettings() {
@@ -127,7 +160,8 @@ function resetSettings() {
   dbHost.value = 'localhost'
   dbPort.value = 5432
   dbName.value = 'obd_gateway'
-  monitorPids.value = ['0C', '0D', '05', '11']
+  obdStore.resetMonitoredPids()
+  showToast('Settings reset to defaults')
 }
 </script>
 
@@ -137,6 +171,7 @@ function resetSettings() {
   border-radius: 12px;
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-md);
+  position: relative;
 }
 
 .view-header h2 {
@@ -194,10 +229,29 @@ function resetSettings() {
   margin-right: var(--spacing-sm);
 }
 
+.pid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-sm);
+}
+
+.pid-counter {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-medium);
+  margin-right: auto;
+}
+
+.pid-counter.active {
+  color: var(--color-primary);
+}
+
 .pid-checkboxes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-sm);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-xs);
 }
 
 .pid-option {
@@ -206,6 +260,75 @@ function resetSettings() {
   gap: var(--spacing-sm);
   font-size: 0.9rem;
   cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-light);
+  border-radius: var(--radius-md);
+  background-color: var(--color-white);
+}
+
+.pid-option:hover {
+  border-color: var(--color-primary);
+}
+
+.pid-option input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.pid-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pid-code {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--color-medium);
+  background-color: var(--color-light);
+  padding: 0 var(--spacing-xs);
+  border-radius: var(--radius-sm);
+}
+
+.btn-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  background-color: var(--color-indicator-bg);
+  color: var(--color-dark);
+  border: 1px solid var(--color-light);
+}
+
+.btn-small:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.toast {
+  position: absolute;
+  top: var(--spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--color-dark);
+  color: var(--color-white);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  max-width: 90%;
+  font-size: 0.9rem;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
 }
 
 .form-actions {

@@ -28,13 +28,27 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useOBDStore } from '../stores/obd'
+import { PID_OPTIONS } from '../constants'
 import TelemetryCard from '../components/TelemetryCard.vue'
 
 const obdStore = useOBDStore()
-const telemetryData = ref<Record<string, number>>({})
+const rawData = ref<Record<string, number>>({})
 let unsubscribe: (() => void) | null = null
 
 const isConnected = computed(() => obdStore.status.connected)
+
+
+const monitoredPids = computed(() => obdStore.monitoredPids)
+
+const telemetryData = computed(() => {
+  const filtered: Record<string, number> = {}
+  for (const [pid, value] of Object.entries(rawData.value)) {
+    if (monitoredPids.value.includes(pid)) {
+      filtered[pid] = value
+    }
+  }
+  return filtered
+})
 const connectionText = computed(() => {
   switch (obdStore.status.state) {
     case 'connected': return 'Connected'
@@ -44,37 +58,29 @@ const connectionText = computed(() => {
   }
 })
 
+const pidMeta = new Map(PID_OPTIONS.map((option) => [option.value, option]))
+
 // Get human-readable label for PID
 function getPidLabel(pid: string): string {
-  const labels: Record<string, string> = {
-    '0C': 'Engine RPM',
-    '0D': 'Vehicle Speed',
-    '05': 'Coolant Temp',
-    '11': 'Throttle Pos',
-    '04': 'Load Percentage',
-    '0B': 'Intake MAP',
-    '0F': 'Intake Temp',
-    '10': 'MAF Air Flow'
-  }
-  return labels[pid] || pid
+  return pidMeta.get(pid)?.label ?? pid
 }
 
 // Get unit for PID
 function getPidUnit(pid: string): string {
-  const units: Record<string, string> = {
-    '0C': 'RPM',
-    '0D': 'km/h',
-    '05': '°C',
-    '11': '%',
-    '04': '%',
-    '0B': 'kPa',
-    '0F': '°C',
-    '10': 'g/s'
-  }
-  return units[pid] || ''
+  return pidMeta.get(pid)?.unit ?? ''
 }
 
 onMounted(() => {
+  if (obdStore.latestReadings.length > 0) {
+    const existing: Record<string, number> = {}
+    for (const reading of obdStore.latestReadings) {
+      if (reading.value != null) {
+        existing[reading.pid] = Number(reading.value)
+      }
+    }
+    rawData.value = existing
+  }
+
   unsubscribe = obdStore.$subscribe((mutation, state) => {
     if (state.latestReadings && Array.isArray(state.latestReadings)) {
       const newData: Record<string, number> = {}
@@ -83,7 +89,7 @@ onMounted(() => {
           newData[reading.pid] = Number(reading.value)
         }
       }
-      telemetryData.value = newData
+      rawData.value = newData
     }
   })
 

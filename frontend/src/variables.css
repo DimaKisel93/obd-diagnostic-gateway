@@ -1,55 +1,33 @@
 /* Theme Variables */
 :root {
-  /* Colors */
   --color-primary: #3498db;
   --color-success: #2ecc71;
   --color-warning: #f39c12;
   --color-error: #e74c3c;
   --color-info: #3498db;
-  
-  /* Neutral colors */
   --color-dark: #2c3e50;
   --color-light: #ecf0f1;
   --color-medium: #7f8c8d;
   --color-white: #ffffff;
-  
-  /* Status indicator colors */
   --color-indicator-bg: #f8f9fa;
-  
-  /* Chart colors */
-  --color-chart-bar-bg: #3498db;
-  --color-chart-bar-warning: #f39c12;
-  --color-chart-bar-danger: #e74c3c;
-  
-  /* Gauge colors */
-  --color-gauge-bg: #ecf0f1;
-  --color-gauge-center: #2c3e50;
-  --color-gauge-text: #2c3e50;
-  
-  /* Telemetry card colors */
   --color-telemetry-bg: #ffffff;
-  --color-telemetry-hover: rgba(0,0,0,0.1);
   --color-telemetry-title: #2c3e50;
-  --color-telemetry-label: #7f8c8d;
   --color-telemetry-value: #2c3e50;
   --color-trend-up: #27ae60;
   --color-trend-down: #e74c3c;
   --color-quality-good: #27ae60;
   --color-quality-bad: #e74c3c;
-  
-  /* Spacing */
+
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
-  
-  /* Border radius */
+
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
   --radius-full: 20px;
   
-  /* Shadows */
   --shadow-sm: 0 1px 4px rgba(0,0,0,0.05);
   --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
 }

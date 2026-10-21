@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "type-check": "vue-tsc --noEmit -p tsconfig.json"
+    "type-check": "vue-tsc --noEmit -p tsconfig.json",
+    "verify:pids": "node scripts/verify-pids.mjs"
   },
   "dependencies": {
     "pinia": "^3.0.2",

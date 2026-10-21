@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, withDefaults } from 'vue'
+import { computed } from 'vue'
 
 interface Props {
   state?: 'connected' | 'disconnected' | 'connecting' | 'error'

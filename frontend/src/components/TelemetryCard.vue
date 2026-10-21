@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, withDefaults } from 'vue'
+import { computed } from 'vue'
 import { TELEMETRY_CONSTANTS } from '../constants'
 
 interface Props {
@@ -91,7 +91,7 @@ const isGood = computed(() => {
 })
 
 const qualityText = computed(() => {
-  return isGood.value ? TELEMETRY_CONSTANTS.trendUp : TELEMETRY_CONSTANTS.trendDown
+  return isGood.value ? '✓ OK' : '✗ Bad'
 })
 </script>
 
