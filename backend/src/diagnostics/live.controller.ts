@@ -41,7 +41,7 @@ export class LiveController {
   @Get("history")
   async history(@Query() query: LatestQueryDto) {
     const sessionId = this.poller.getStatus().sessionId ?? undefined;
-    const items = await this.telemetry.getLatest(query.limit, sessionId);
+    const items = await this.telemetry.getLatest(query.limit, sessionId, query.pid);
     return {
       source: "database",
       sessionId: sessionId ?? null,

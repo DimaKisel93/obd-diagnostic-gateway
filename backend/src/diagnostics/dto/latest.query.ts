@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min, IsString } from 'class-validator';
 
 export class LatestQueryDto {
   @IsOptional()
@@ -8,4 +8,8 @@ export class LatestQueryDto {
   @Min(1)
   @Max(200)
   limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  pid?: string;
 }

@@ -164,9 +164,13 @@ export class TelemetryService {
     });
   }
 
-  async getLatest(limit = 20, sessionId?: string) {
+  async getLatest(limit = 20, sessionId?: string, pid?: string) {
+    const where: Prisma.TelemetryReadingWhereInput = {
+      ...(sessionId ? { sessionId } : {}),
+      ...(pid ? { pid: pid.toUpperCase() } : {}),
+    };
     return this.prisma.telemetryReading.findMany({
-      where: sessionId ? { sessionId } : {},
+      where,
       take: limit,
       orderBy: { recordedAt: 'desc' },
     });
