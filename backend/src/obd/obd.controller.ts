@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { ObdService } from './obd.service';
 
 /**
@@ -25,7 +25,8 @@ export class ObdController {
 
   /** One-shot live sample (RPM, speed, coolant, throttle). */
   @Get('sample')
-  sample() {
-    return this.obdService.readSample();
+  sample(@Query('pids') pids?: string) {
+    const parsed = pids?.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    return this.obdService.readSample(parsed && parsed.length ? parsed : undefined);
   }
 }

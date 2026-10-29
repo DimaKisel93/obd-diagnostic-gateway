@@ -14,8 +14,9 @@ export class LiveController {
 
   /** Fresh sample from the adapter */
   @Get()
-  async sample() {
-    const readings = await this.obd.readSample();
+  async sample(@Query('pids') pids?: string) {
+    const parsed = pids?.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const readings = await this.obd.readSample(parsed && parsed.length ? parsed : undefined);
     return {
       source: "adapter",
       adapter: this.obd.getStatus().adapter,

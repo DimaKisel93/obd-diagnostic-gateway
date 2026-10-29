@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, onScopeDispose, ComputedRef } from 'vue'
 import type { Ref } from 'vue'
+import axios from 'axios'
 import { DEFAULT_MONITORED_PIDS, PID_OPTIONS, SUPPORTED_PIDS } from '../constants'
 
-// Types for the OBD store state
 export interface ObdStatus {
   adapter: string
   state: 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -33,7 +33,9 @@ export type PidValue = {
   unit: string
 }
 
-// Initial state
+const API_BASE = '/api'
+const POLL_INTERVAL_MS = 1000
+
 const initialState: ObdStatus = {
   adapter: 'mock',
   state: 'disconnected',
@@ -44,22 +46,16 @@ const initialState: ObdStatus = {
 const createInitialState = (): ObdStatus => ({ ...initialState })
 
 const initialMonitoredPids = [...DEFAULT_MONITORED_PIDS]
-
 const MONITORED_PIDS_STORAGE_KEY = 'obd.monitoredPids'
 
 const loadPersistedPids = (): string[] => {
   if (typeof window === 'undefined') return [...initialMonitoredPids]
-
   try {
     const raw = window.localStorage.getItem(MONITORED_PIDS_STORAGE_KEY)
     if (!raw) return [...initialMonitoredPids]
-
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return [...initialMonitoredPids]
-
-    const valid = parsed.filter(
-      (pid): pid is string => typeof pid === 'string' && SUPPORTED_PIDS.includes(pid)
-    )
+    const valid = parsed.filter((pid): pid is string => typeof pid === 'string' && SUPPORTED_PIDS.includes(pid))
     return [...new Set(valid)]
   } catch {
     return [...initialMonitoredPids]
@@ -69,8 +65,35 @@ const loadPersistedPids = (): string[] => {
 const persistMonitoredPids = (pids: string[]): void => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(MONITORED_PIDS_STORAGE_KEY, JSON.stringify(pids))
- 
 }
+
+const generateMockReadings = (pids: string[]): ObdReading[] => {
+  const now = Date.now()
+  return pids.map((pid) => {
+    let value: number
+    switch (pid) {
+      case '0C': value = Math.floor(800 + Math.random() * 4000); break
+      case '0D': value = Math.floor(20 + Math.random() * 120); break
+      case '05': value = Math.round(90 + Math.random() * 20); break
+      case '11': value = Math.floor(10 + Math.random() * 40); break
+      case '04': value = Math.floor(20 + Math.random() * 50); break
+      case '0B': value = Math.round(30 + Math.random() * 70); break
+      case '0F': value = Math.round(20 + Math.random() * 30); break
+      case '10': value = Math.round(0.2 + Math.random() * 1.8); break
+      default: value = 0
+    }
+    return { pid, value, timestamp: now }
+  })
+}
+
+const mapToTelemetry = (readings: ObdReading[]): LiveTelemetry => ({
+  rpm: readings.find((r) => r.pid === '0C')?.value ?? null,
+  speed: readings.find((r) => r.pid === '0D')?.value ?? null,
+  coolantTemp: readings.find((r) => r.pid === '05')?.value ?? null,
+  throttle: readings.find((r) => r.pid === '11')?.value ?? null,
+  load: readings.find((r) => r.pid === '04')?.value ?? null,
+  timestamp: Date.now(),
+})
 
 interface OBDStoreState {
   status: Ref<ObdStatus>
@@ -86,41 +109,21 @@ interface OBDStoreState {
   getHistory: ComputedRef<ObdReading[]>
   getPidLabel: (pid: string) => string
   getPidUnit: (pid: string) => string
-
   initializeConnection: () => Promise<void>
   disconnect: () => void
   fetchHistory: (pid: string, limit?: number) => Promise<void>
   setMonitoredPids: (pids: string[]) => void
   resetMonitoredPids: () => void
 }
-export const useOBDStore = defineStore('obd', (): OBDStoreState => {
 
+export const useOBDStore = defineStore('obd', (): OBDStoreState => {
   const status = ref<ObdStatus>(createInitialState())
   const latestReadings = ref<ObdReading[]>([])
-  const liveTelemetry = ref<LiveTelemetry>({
-    rpm: null,
-    speed: null,
-    coolantTemp: null,
-    throttle: null,
-    load: null,
-    timestamp: Date.now(),
-  })
+  const liveTelemetry = ref<LiveTelemetry>({ rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() })
   const history = ref<ObdReading[]>([])
   const monitoredPids = ref<string[]>(loadPersistedPids())
 
-  let stopSimulation: (() => void) | null = null
-  let runSimulationTick: (() => void) | null = null
-
-  const setMonitoredPids = (pids: string[]) => {
-
-    monitoredPids.value = [...pids]
-    persistMonitoredPids(monitoredPids.value)
-    runSimulationTick?.()
-  }
-
-  const resetMonitoredPids = () => {
-    setMonitoredPids([...initialMonitoredPids])
-  }
+  let stopPolling: (() => void) | null = null
 
   const isConnected = computed(() => status.value.connected)
   const connectionState = computed(() => status.value.state)
@@ -129,176 +132,96 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
   const getLiveData = computed(() => ({ ...liveTelemetry.value }))
   const getHistory = computed(() => history.value)
 
-  const initializeConnection = async () => {
-
-    stopSimulation?.()
-
+  const fetchLiveSample = async (): Promise<void> => {
     try {
-      // Simulate connection - in production this would connect to WebSocket
-      status.value = {
-        ...createInitialState(),
-        state: 'connecting',
-      }
-
-      // Simulate connection after a brief delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      status.value = {
-        adapter: 'mock',
-        state: 'connected',
-        connected: true,
-        lastError: null,
-      }
-
-      stopSimulation = simulateLiveData()
-    } catch (error) {
-      stopSimulation?.()
-      stopSimulation = null
-      status.value = {
-        ...createInitialState(),
-        state: 'error',
-        lastError: error instanceof Error ? error.message : String(error),
-      }
-    }
-  }
-
-  const disconnect = () => {
-    stopSimulation?.()
-    stopSimulation = null
-
-    status.value = {
-      ...createInitialState(),
-      adapter: 'mock',
-    }
-
-    latestReadings.value = []
-    liveTelemetry.value = {
-      rpm: null,
-      speed: null,
-      coolantTemp: null,
-      throttle: null,
-      load: null,
-      timestamp: Date.now(),
-    }
-  }
-
-  const simulateLiveData = (): (() => void) => {
-    const tick = () => {
-      const pidsToSimulate = monitoredPids.value
-      const readings = []
-      const telemetry: LiveTelemetry = { rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() }
-
-      for (const pid of pidsToSimulate) {
-        let value: number
-
-        if (pid === '0C') {
-          // Engine RPM
-          value = Math.floor(800 + Math.random() * 4000)
-        } else if (pid === '0D') {
-          // Vehicle Speed
-          value = Math.floor(20 + Math.random() * 120)
-        } else if (pid === '05') {
-          // Coolant Temp
-          value = Math.round(90 + Math.random() * 20)
-        } else if (pid === '11') {
-          // Throttle Position
-          value = Math.floor(10 + Math.random() * 40)
-        } else if (pid === '04') {
-          // Engine Load
-          value = Math.floor(20 + Math.random() * 50)
-        } else if (pid === '0B') {
-          // Intake MAP
-          value = Math.round(30 + Math.random() * 70)
-        } else if (pid === '0F') {
-          // Intake Air Temp
-          value = Math.round(20 + Math.random() * 30)
-        } else if (pid === '10') {
-          // MAF Air Flow
-          value = Math.round(0.2 + Math.random() * 1.8)
-        } else {
-          continue
-        }
-
-        readings.push({ pid, value, timestamp: Date.now() })
-
-        switch (pid) {
-          case '0C': telemetry.rpm = value; break
-          case '0D': telemetry.speed = value; break
-          case '05': telemetry.coolantTemp = value; break
-          case '11': telemetry.throttle = value; break
-          case '04': telemetry.load = value; break
-        }
-      }
-
+      const { data: readings } = await axios.get<ObdReading[]>(`${API_BASE}/live/sample`, {
+        params: { pids: monitoredPids.value.join(',') },
+      })
+      if (!readings || readings.length === 0) return
       latestReadings.value = readings
-      liveTelemetry.value = telemetry
-    }
-
-    runSimulationTick = tick
-
-    const intervalId = setInterval(tick, 1000)
-    return () => {
-      clearInterval(intervalId)
-      runSimulationTick = null
+      liveTelemetry.value = mapToTelemetry(readings)
+    } catch (error) {
+      console.error('Failed to fetch live sample from backend:', error)
+      latestReadings.value = generateMockReadings(monitoredPids.value)
+      liveTelemetry.value = mapToTelemetry(latestReadings.value)
     }
   }
 
-  // Fetch recent history from backend
-  const fetchHistory = async (pid: string, limit: number = 60) => {
+  const startBackendPolling = (): (() => void) => {
+    fetchLiveSample()
+    const intervalId = setInterval(fetchLiveSample, POLL_INTERVAL_MS)
+    return () => clearInterval(intervalId)
+  }
+const initializeConnection = async (): Promise<void> => {
+    stopPolling?.()
     try {
-      // Would fetch from API in production
-      const mockData: ObdReading[] = []
-      for (let i = 0; i < limit; i++) {
-        mockData.push({
-          pid,
-          value: Math.random() * 100,
-          timestamp: Date.now() - i * 1000,
-        })
+      status.value = { ...createInitialState(), state: 'connecting' }
+      try {
+        await axios.post(`${API_BASE}/adapter/connect`)
+        const { data } = await axios.get<ObdStatus>(`${API_BASE}/adapter`)
+        status.value = data
+      } catch (err) {
+        console.warn('Backend unavailable, using mock simulation:', err)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        status.value = { adapter: 'mock', state: 'connected', connected: true, lastError: null }
       }
-      history.value = mockData
+      stopPolling = startBackendPolling()
+    } catch (error) {
+      stopPolling?.()
+      stopPolling = null
+      status.value = { ...createInitialState(), state: 'error', lastError: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  const disconnect = (): void => {
+    stopPolling?.()
+    stopPolling = null
+    status.value = { ...createInitialState(), adapter: 'mock' }
+    latestReadings.value = []
+    liveTelemetry.value = { rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() }
+  }
+
+  const setMonitoredPids = (pids: string[]): void => {
+    monitoredPids.value = [...pids]
+    persistMonitoredPids(monitoredPids.value)
+    fetchLiveSample()
+  }
+
+  const resetMonitoredPids = (): void => {
+    setMonitoredPids([...initialMonitoredPids])
+  }
+
+  const fetchHistory = async (pid: string, limit: number = 60): Promise<void> => {
+    try {
+      const { data: items } = await axios.get<ObdReading[]>(`${API_BASE}/live/history`, { params: { pid, limit } })
+      history.value = items ?? []
     } catch (error) {
       console.error('Failed to fetch history:', error)
+      history.value = [...Array(limit)].map((_, i) => ({
+        pid,
+        value: Math.random() * 100,
+        timestamp: Date.now() - i * 1000,
+      }))
     }
   }
 
-  // Get human-readable label for PID
   const getPidLabel = (pid: string): string => {
     return PID_OPTIONS.find((option) => option.value === pid)?.label ?? pid
   }
 
-  // Get unit for PID
   const getPidUnit = (pid: string): string => {
     return PID_OPTIONS.find((option) => option.value === pid)?.unit ?? ''
   }
 
   onScopeDispose(() => {
-    stopSimulation?.()
-    stopSimulation = null
+    stopPolling?.()
+    stopPolling = null
   })
 
   return {
-    // State
-    status,
-    latestReadings,
-    liveTelemetry,
-    history,
-    monitoredPids,
-
-    // Getters
-    isConnected,
-    connectionState,
-    getLastError,
-    getReadings,
-    getLiveData,
-    getHistory,
-    getPidLabel,
-    getPidUnit,
-
-    // Actions
-    initializeConnection,
-    disconnect,
-    fetchHistory,
-    setMonitoredPids,
-    resetMonitoredPids,
+    status, latestReadings, liveTelemetry, history, monitoredPids,
+    isConnected, connectionState, getLastError, getReadings, getLiveData,
+    getHistory, getPidLabel, getPidUnit,
+    initializeConnection, disconnect, fetchHistory, setMonitoredPids, resetMonitoredPids,
   }
 })
