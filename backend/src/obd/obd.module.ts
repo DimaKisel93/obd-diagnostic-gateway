@@ -5,6 +5,7 @@ import { MockElm327Adapter } from './adapters/mock-elm327.adapter';
 import { OBD_ADAPTER } from './interfaces/obd-adapter.interface';
 import { ObdController } from './obd.controller';
 import { ObdService } from './obd.service';
+import { AdapterModeService } from './services/adapter-mode.service';
 
 @Module({
   imports: [ConfigModule],
@@ -12,6 +13,7 @@ import { ObdService } from './obd.service';
   providers: [
     MockElm327Adapter,
     Elm327Adapter,
+    AdapterModeService,
     {
       provide: OBD_ADAPTER,
       inject: [ConfigService, MockElm327Adapter, Elm327Adapter],
@@ -26,6 +28,6 @@ import { ObdService } from './obd.service';
     },
     ObdService,
   ],
-  exports: [ObdService, OBD_ADAPTER],
+  exports: [ObdService, OBD_ADAPTER, AdapterModeService],
 })
 export class ObdModule {}

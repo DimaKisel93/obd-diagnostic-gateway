@@ -99,7 +99,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import axios from 'axios'
 import { useOBDStore } from '../stores/obd'
 import { PID_OPTIONS } from '../constants'
 
@@ -145,10 +146,27 @@ function showToast(message: string) {
   }, 3000)
 }
 
-function saveSettings() {
+async function loadSettings() {
+  try {
+    const { data } = await axios.get('/api/adapter/mode')
+    adapterMode.value = data.mode ?? 'mock'
+  } catch (err) {
+    console.warn('Failed to load adapter mode:', err)
+  }
+}
+
+async function saveSettings() {
   obdStore.setMonitoredPids([...selectedPids.value])
   const pids = selectedPids.value.join(', ') || 'none'
   showToast(`Settings saved - monitoring ${selectedCount.value} PID(s): ${pids}`)
+
+  try {
+    await axios.post('/api/adapter/mode', { mode: adapterMode.value })
+    showToast(`Adapter mode set to: ${adapterMode.value}`)
+  } catch (err) {
+    console.error('Failed to save adapter mode:', err)
+    showToast('Failed to save adapter mode')
+  }
 }
 
 function resetSettings() {
@@ -163,6 +181,10 @@ function resetSettings() {
   obdStore.resetMonitoredPids()
   showToast('Settings reset to defaults')
 }
+
+onMounted(() => {
+  loadSettings()
+})
 </script>
 
 <style scoped>

@@ -1,17 +1,9 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  OBD_ADAPTER,
-  ObdAdapter,
-} from './interfaces/obd-adapter.interface';
+import { ObdAdapter } from './interfaces/obd-adapter.interface';
 import { DEFAULT_LIVE_PIDS } from './types/pid';
 import { ObdConnectionState, ObdReading, ObdStatus } from './types/telemetry';
+import { AdapterModeService } from './services/adapter-mode.service';
 
 @Injectable()
 export class ObdService implements OnModuleInit, OnModuleDestroy {
@@ -20,9 +12,13 @@ export class ObdService implements OnModuleInit, OnModuleDestroy {
   private lastError: string | null = null;
 
   constructor(
-    @Inject(OBD_ADAPTER) private readonly adapter: ObdAdapter,
+    private readonly adapterModeService: AdapterModeService,
     private readonly config: ConfigService,
   ) {}
+
+  private get adapter(): ObdAdapter {
+    return this.adapterModeService.getCurrentAdapter();
+  }
 
   async onModuleInit(): Promise<void> {
     const autoConnect = this.config.get<string>('OBD_AUTO_CONNECT', 'true') === 'true';
