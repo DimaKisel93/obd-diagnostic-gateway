@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ObdService } from '../obd/obd.service';
 import { TelemetryService } from './telemetry.service';
+import { TelemetryGateway } from './telemetry.gateway';
 
 export interface PollerStatus {
   running: boolean;
@@ -31,6 +32,7 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly obd: ObdService,
     private readonly telemetry: TelemetryService,
+    private readonly gateway: TelemetryGateway,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -74,6 +76,13 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
     this.ticks = 0;
     this.lastError = null;
 
+    this.gateway.broadcastSessionStatus({
+      sessionId: this.sessionId,
+      status: 'started',
+      adapter: this.obd.getStatus().adapter,
+      timestamp: Date.now(),
+    });
+
     this.timer = setInterval(() => {
       void this.tick();
     }, this.intervalMs());
@@ -95,6 +104,12 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
     if (this.sessionId) {
       try {
         await this.telemetry.endSession(this.sessionId);
+        this.gateway.broadcastSessionStatus({
+          sessionId: this.sessionId,
+          status: 'ended',
+          adapter: this.obd.getStatus().adapter,
+          timestamp: Date.now(),
+        });
       } catch (error) {
         this.logger.warn(
           `Failed to close session ${this.sessionId}: ${
@@ -118,6 +133,9 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
     try {
       const readings = await this.obd.readSample();
       await this.telemetry.saveReadings(this.sessionId, readings);
+      
+      this.gateway.broadcastReadings(this.sessionId, readings);
+
       this.ticks += 1;
       this.lastTickAt = new Date();
       this.lastError = null;

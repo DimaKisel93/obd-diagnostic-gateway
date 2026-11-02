@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { ObdService } from '../obd/obd.service';
 import { TelemetryPollerService } from './telemetry-poller.service';
+import { TelemetryGateway } from './telemetry.gateway';
 import { TelemetryService } from './telemetry.service';
 
 describe('TelemetryPollerService', () => {
@@ -34,6 +35,11 @@ describe('TelemetryPollerService', () => {
       saveReadings: jest.fn().mockResolvedValue({ count: 1 }),
     };
 
+    const gateway = {
+      broadcastReadings: jest.fn(),
+      broadcastSessionStatus: jest.fn(),
+    };
+
     const config = {
       get: jest.fn((key: string, fallback?: string) => {
         if (key === 'OBD_POLL_INTERVAL_MS') {
@@ -47,6 +53,7 @@ describe('TelemetryPollerService', () => {
       config,
       obd as unknown as ObdService,
       telemetry as unknown as TelemetryService,
+      gateway as unknown as TelemetryGateway,
     );
   });
 

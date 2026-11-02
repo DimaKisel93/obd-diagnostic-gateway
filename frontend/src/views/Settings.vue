@@ -12,7 +12,6 @@
           <select id="adapter" v-model="adapterMode">
             <option value="mock">Mock (Simulated)</option>
             <option value="elm327">Real ELM327 (J2534)</option>
-            <option value="j2534">J2534 OpenPort 2.0</option>
           </select>
         </div>
         <div class="form-group" v-if="adapterMode === 'elm327'">
@@ -33,22 +32,6 @@
             <input type="checkbox" v-model="autoConnect" />
             Auto-connect on startup
           </label>
-        </div>
-        <div class="form-group">
-          <label>
-            <input type="checkbox" v-model="autoPoll" />
-            Automatic polling enabled
-          </label>
-        </div>
-        <div class="form-group" v-if="autoPoll">
-          <label for="pollInterval">Poll Interval (ms)</label>
-          <input 
-            id="pollInterval" 
-            type="number" 
-            v-model.number="pollInterval"
-            min="100"
-            max="10000"
-          />
         </div>
       </div>
       
@@ -109,8 +92,6 @@ const obdStore = useOBDStore()
 const adapterMode = ref('mock')
 const port = ref('')
 const autoConnect = ref(true)
-const autoPoll = ref(true)
-const pollInterval = ref(1000)
 const dbHost = ref('localhost')
 const dbPort = ref(5432)
 const dbName = ref('obd_gateway')
@@ -173,8 +154,6 @@ function resetSettings() {
   adapterMode.value = 'mock'
   port.value = ''
   autoConnect.value = true
-  autoPoll.value = true
-  pollInterval.value = 1000
   dbHost.value = 'localhost'
   dbPort.value = 5432
   dbName.value = 'obd_gateway'

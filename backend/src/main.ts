@@ -13,7 +13,9 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
   await app.listen(process.env.PORT ?? 3000);
   console.log(`OBD Diagnostic Gateway listening on http://localhost:${process.env.PORT ?? 3000}/api`);
+  console.log(`WebSocket telemetry endpoint: ws://localhost:${process.env.PORT ?? 3000}/telemetry`);
 }
 bootstrap();

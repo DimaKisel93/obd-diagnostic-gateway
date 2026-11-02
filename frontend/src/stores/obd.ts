@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref, computed, onScopeDispose, ComputedRef } from 'vue'
-import type { Ref } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import axios from 'axios'
+import { io, Socket } from 'socket.io-client'
 import { DEFAULT_MONITORED_PIDS, PID_OPTIONS, SUPPORTED_PIDS } from '../constants'
 
 export interface ObdStatus {
@@ -34,7 +34,7 @@ export type PidValue = {
 }
 
 const API_BASE = '/api'
-const POLL_INTERVAL_MS = 1000
+const WS_PATH = '/telemetry'
 
 const initialState: ObdStatus = {
   adapter: 'mock',
@@ -95,35 +95,37 @@ const mapToTelemetry = (readings: ObdReading[]): LiveTelemetry => ({
   timestamp: Date.now(),
 })
 
-interface OBDStoreState {
-  status: Ref<ObdStatus>
-  latestReadings: Ref<ObdReading[]>
-  liveTelemetry: Ref<LiveTelemetry>
-  history: Ref<ObdReading[]>
-  monitoredPids: Ref<string[]>
-  isConnected: ComputedRef<boolean>
-  connectionState: ComputedRef<ObdStatus['state']>
-  getLastError: ComputedRef<string | null>
-  getReadings: ComputedRef<ObdReading[]>
-  getLiveData: ComputedRef<LiveTelemetry>
-  getHistory: ComputedRef<ObdReading[]>
-  getPidLabel: (pid: string) => string
-  getPidUnit: (pid: string) => string
-  initializeConnection: () => Promise<void>
-  disconnect: () => void
-  fetchHistory: (pid: string, limit?: number) => Promise<void>
-  setMonitoredPids: (pids: string[]) => void
-  resetMonitoredPids: () => void
+interface TelemetryDataEvent {
+  readings: {
+    pid: string
+    name: string
+    value: number | null
+    unit: string
+    timestamp: number
+  }[]
+  sessionId: string
+  timestamp: number
 }
 
-export const useOBDStore = defineStore('obd', (): OBDStoreState => {
+interface SessionStatusEvent {
+  sessionId: string | null
+  status: 'started' | 'ended'
+  adapter: string
+  timestamp: number
+}
+
+export const useOBDStore = defineStore('obd', () => {
   const status = ref<ObdStatus>(createInitialState())
   const latestReadings = ref<ObdReading[]>([])
-  const liveTelemetry = ref<LiveTelemetry>({ rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() })
+  const liveTelemetry = ref<LiveTelemetry>({
+    rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now()
+  })
   const history = ref<ObdReading[]>([])
   const monitoredPids = ref<string[]>(loadPersistedPids())
 
-  let stopPolling: (() => void) | null = null
+  let socket: Socket | null = null
+  let currentSessionId: string | null = null
+  let pollingCleanup: ReturnType<typeof setInterval> | null = null
 
   const isConnected = computed(() => status.value.connected)
   const connectionState = computed(() => status.value.state)
@@ -132,53 +134,171 @@ export const useOBDStore = defineStore('obd', (): OBDStoreState => {
   const getLiveData = computed(() => ({ ...liveTelemetry.value }))
   const getHistory = computed(() => history.value)
 
-  const fetchLiveSample = async (): Promise<void> => {
-    try {
-      const { data: readings } = await axios.get<ObdReading[]>(`${API_BASE}/live/sample`, {
-        params: { pids: monitoredPids.value.join(',') },
-      })
-      if (!readings || readings.length === 0) return
-      latestReadings.value = readings
-      liveTelemetry.value = mapToTelemetry(readings)
-    } catch (error) {
-      console.error('Failed to fetch live sample from backend:', error)
-      latestReadings.value = generateMockReadings(monitoredPids.value)
-      liveTelemetry.value = mapToTelemetry(latestReadings.value)
+  function mapSocketReadings(payload: TelemetryDataEvent['readings']): ObdReading[] {
+    return payload.map((r) => ({
+      pid: r.pid,
+      value: r.value,
+      timestamp: r.timestamp,
+    }))
+  }
+
+  function applyReadings(readings: ObdReading[]) {
+    if (!readings || readings.length === 0) return
+    latestReadings.value = readings
+    liveTelemetry.value = mapToTelemetry(readings)
+  }
+
+  function clearLiveData() {
+    latestReadings.value = []
+    liveTelemetry.value = {
+      rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now()
     }
   }
 
-  const startBackendPolling = (): (() => void) => {
-    fetchLiveSample()
-    const intervalId = setInterval(fetchLiveSample, POLL_INTERVAL_MS)
-    return () => clearInterval(intervalId)
+  function connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const baseUrl = window.location.origin
+      socket = io(baseUrl + WS_PATH, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        autoConnect: true,
+      })
+
+      socket.on('connect', () => {
+        console.log('[OBD] WebSocket connected:', socket?.id)
+      })
+
+      socket.on('connect_error', (err) => {
+        console.error('[OBD] WebSocket connection error:', err.message)
+        reject(err)
+      })
+
+      socket.on('disconnect', (reason) => {
+        console.log('[OBD] WebSocket disconnected:', reason)
+        if (reason === 'io server disconnect') {
+          socket?.connect()
+        }
+      })
+
+      socket.on('telemetry:data', (event: TelemetryDataEvent) => {
+        console.debug('[OBD] Received telemetry data:', event.readings.length, 'readings')
+        const readings = mapSocketReadings(event.readings)
+        applyReadings(readings)
+      })
+
+      socket.on('telemetry:session', (event: SessionStatusEvent) => {
+        console.log('[OBD] Session event:', event.status, event.sessionId)
+        if (event.status === 'started') {
+          currentSessionId = event.sessionId
+          if (currentSessionId && socket?.connected) {
+            socket.emit('subscribe:session', { sessionId: currentSessionId })
+          }
+        } else if (event.status === 'ended') {
+          currentSessionId = null
+          clearLiveData()
+        }
+      })
+
+      socket.on('telemetry:snapshot', (event: any) => {
+        console.debug('[OBD] Received snapshot:', event.readings.length, 'readings')
+        const readings = event.readings.map((r: any) => ({
+          pid: r.pid,
+          value: r.value,
+          timestamp: r.recordedAt ? new Date(r.recordedAt).getTime() : Date.now(),
+        }))
+        applyReadings(readings)
+      })
+
+      const timeout = setTimeout(() => {
+        if (!socket?.connected) {
+          reject(new Error('WebSocket connection timeout'))
+        }
+      }, 5000)
+
+      socket.once('connect', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
+    })
   }
-const initializeConnection = async (): Promise<void> => {
-    stopPolling?.()
+
+  function disconnectWebSocket() {
+    if (pollingCleanup) {
+      clearInterval(pollingCleanup)
+      pollingCleanup = null
+    }
+    if (socket) {
+      if (currentSessionId) {
+        socket.emit('unsubscribe:session', { sessionId: currentSessionId })
+      }
+      socket.disconnect()
+      socket = null
+    }
+    currentSessionId = null
+  }
+
+  const fetchLiveSample = async (): Promise<void> => {
+    try {
+      const { data: readings } = await axios.get<ObdReading[]>(API_BASE + '/live/sample', {
+        params: { pids: monitoredPids.value.join(',') },
+      })
+      if (!readings || readings.length === 0) return
+      applyReadings(readings)
+    } catch (error) {
+      console.error('Failed to fetch live sample from backend:', error)
+      applyReadings(generateMockReadings(monitoredPids.value))
+    }
+  }
+
+  const startPollingFallback = (): Promise<void> => {
+    return new Promise((resolve) => {
+      fetchLiveSample()
+      pollingCleanup = setInterval(fetchLiveSample, 1000)
+      resolve()
+    })
+  }
+
+  const initializeConnection = async (): Promise<void> => {
+    disconnectWebSocket()
     try {
       status.value = { ...createInitialState(), state: 'connecting' }
+
       try {
-        await axios.post(`${API_BASE}/adapter/connect`)
-        const { data } = await axios.get<ObdStatus>(`${API_BASE}/adapter`)
+        await axios.post(API_BASE + '/adapter/connect')
+        const { data } = await axios.get<ObdStatus>(API_BASE + '/adapter')
         status.value = data
       } catch (err) {
         console.warn('Backend unavailable, using mock simulation:', err)
         await new Promise((resolve) => setTimeout(resolve, 500))
         status.value = { adapter: 'mock', state: 'connected', connected: true, lastError: null }
       }
-      stopPolling = startBackendPolling()
+
+      try {
+        await connectWebSocket()
+        const { data: session } = await axios.get<{ id: string | null }>(API_BASE + '/telemetry/session')
+        if (session?.id) {
+          currentSessionId = session.id
+          if (socket?.connected) {
+            socket.emit('subscribe:session', { sessionId: currentSessionId })
+          }
+        }
+        status.value = { ...status.value, state: 'connected', connected: true, lastError: null }
+      } catch (wsErr) {
+        console.warn('WebSocket unavailable, falling back to polling:', wsErr)
+        await startPollingFallback()
+      }
     } catch (error) {
-      stopPolling?.()
-      stopPolling = null
+      disconnectWebSocket()
       status.value = { ...createInitialState(), state: 'error', lastError: error instanceof Error ? error.message : String(error) }
     }
   }
 
   const disconnect = (): void => {
-    stopPolling?.()
-    stopPolling = null
+    disconnectWebSocket()
     status.value = { ...createInitialState(), adapter: 'mock' }
-    latestReadings.value = []
-    liveTelemetry.value = { rpm: null, speed: null, coolantTemp: null, throttle: null, load: null, timestamp: Date.now() }
+    clearLiveData()
   }
 
   const setMonitoredPids = (pids: string[]): void => {
@@ -214,8 +334,7 @@ const initializeConnection = async (): Promise<void> => {
   }
 
   onScopeDispose(() => {
-    stopPolling?.()
-    stopPolling = null
+    disconnectWebSocket()
   })
 
   return {
