@@ -2,6 +2,10 @@
   <div class="settings-view">
     <div class="view-header">
       <h2>Settings</h2>
+      <div class="backend-status" :class="{ 'backend-offline': !backendAvailable }">
+        <span class="status-indicator" :class="{ offline: !backendAvailable }"></span>
+        <span>{{ backendAvailable ? 'Backend connected' : 'Backend offline — mock mode' }}</span>
+      </div>
     </div>
     
     <div class="settings-grid">
@@ -88,6 +92,7 @@ import { useOBDStore } from '../stores/obd'
 import { PID_OPTIONS } from '../constants'
 
 const obdStore = useOBDStore()
+const backendAvailable = computed(() => obdStore.backendAvailable)
 
 const adapterMode = ref('mock')
 const port = ref('')
@@ -338,6 +343,33 @@ onMounted(() => {
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-sm);
   border-top: 1px solid var(--color-light);
+}
+
+.backend-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.9rem;
+  padding: var(--spacing-sm);
+  background-color: var(--color-indicator-bg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.backend-status.backend-offline {
+  background-color: rgba(var(--color-error-rgb, 239, 68, 68), 0.1);
+  color: var(--color-error);
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+}
+
+.status-indicator.offline {
+  background-color: var(--color-error);
 }
 
 .btn {

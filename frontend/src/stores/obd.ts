@@ -122,6 +122,7 @@ export const useOBDStore = defineStore('obd', () => {
   })
   const history = ref<ObdReading[]>([])
   const monitoredPids = ref<string[]>(loadPersistedPids())
+  const backendAvailable = ref<boolean>(true)
 
   let socket: Socket | null = null
   let currentSessionId: string | null = null
@@ -269,8 +270,10 @@ export const useOBDStore = defineStore('obd', () => {
         await axios.post(API_BASE + '/adapter/connect')
         const { data } = await axios.get<ObdStatus>(API_BASE + '/adapter')
         status.value = data
+        backendAvailable.value = true
       } catch (err) {
         console.warn('Backend unavailable, using mock simulation:', err)
+        backendAvailable.value = false
         await new Promise((resolve) => setTimeout(resolve, 500))
         status.value = { adapter: 'mock', state: 'connected', connected: true, lastError: null }
       }
@@ -291,6 +294,7 @@ export const useOBDStore = defineStore('obd', () => {
       }
     } catch (error) {
       disconnectWebSocket()
+      backendAvailable.value = false
       status.value = { ...createInitialState(), state: 'error', lastError: error instanceof Error ? error.message : String(error) }
     }
   }
@@ -341,6 +345,7 @@ export const useOBDStore = defineStore('obd', () => {
     status, latestReadings, liveTelemetry, history, monitoredPids,
     isConnected, connectionState, getLastError, getReadings, getLiveData,
     getHistory, getPidLabel, getPidUnit,
+    backendAvailable,
     initializeConnection, disconnect, fetchHistory, setMonitoredPids, resetMonitoredPids,
   }
 })

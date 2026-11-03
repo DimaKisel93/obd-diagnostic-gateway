@@ -3,7 +3,7 @@
     <div class="dashboard-header">
       <h2>Live Telemetry</h2>
       <div class="connection-status">
-        <span class="status-indicator" :class="[{ connected: isConnected }]"></span>
+        <span class="status-indicator" :class="[{ connected: isConnected }, { offline: !backendAvailable }]"></span>
         <span>{{ connectionText }}</span>
       </div>
     </div>
@@ -21,6 +21,7 @@
     
     <div v-else class="empty-state">
       <p>No telemetry data available. Ensure the backend is running and connected.</p>
+      <p v-if="!backendAvailable" class="backend-warning">Backend is offline — using mock data</p>
     </div>
   </div>
 </template>
@@ -32,6 +33,7 @@ import { PID_OPTIONS } from '../constants'
 import TelemetryCard from '../components/TelemetryCard.vue'
 
 const obdStore = useOBDStore()
+const backendAvailable = computed(() => obdStore.backendAvailable)
 const rawData = ref<Record<string, number>>({})
 let unsubscribe: (() => void) | null = null
 
@@ -51,7 +53,8 @@ const telemetryData = computed(() => {
 })
 const connectionText = computed(() => {
   switch (obdStore.status.state) {
-    case 'connected': return 'Connected'
+    case 'connected': 
+      return backendAvailable ? 'Connected' : 'Connected — mock mode'
     case 'connecting': return 'Connecting...'
     case 'error': return `Error: ${obdStore.status.lastError}`
     default: return 'Disconnected'
@@ -60,12 +63,10 @@ const connectionText = computed(() => {
 
 const pidMeta = new Map(PID_OPTIONS.map((option) => [option.value, option]))
 
-// Get human-readable label for PID
 function getPidLabel(pid: string): string {
   return pidMeta.get(pid)?.label ?? pid
 }
 
-// Get unit for PID
 function getPidUnit(pid: string): string {
   return pidMeta.get(pid)?.unit ?? ''
 }
@@ -154,5 +155,11 @@ onUnmounted(() => {
   padding: 3rem;
   color: var(--color-medium);
   font-style: italic;
+}
+
+.backend-warning {
+  color: var(--color-error);
+  font-weight: 500;
+  margin-top: var(--spacing-sm);
 }
 </style>
