@@ -1,4 +1,6 @@
 import { ConfigService } from '@nestjs/config';
+import { AdapterModeService } from './services/adapter-mode.service';
+import { Elm327Adapter } from './adapters/elm327.adapter';
 import { MockElm327Adapter } from './adapters/mock-elm327.adapter';
 import { ObdService } from './obd.service';
 
@@ -12,7 +14,13 @@ describe('ObdService', () => {
       get: jest.fn((_key: string, fallback?: string) => fallback ?? 'true'),
     } as unknown as ConfigService;
 
-    service = new ObdService(adapter, config);
+    const adapterModeService = new AdapterModeService(
+      adapter,
+      adapter as unknown as Elm327Adapter,
+      config,
+    );
+
+    service = new ObdService(adapterModeService, config);
   });
 
   it('connects via adapter and exposes status', async () => {

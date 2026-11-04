@@ -1,3 +1,4 @@
 allowBuilds:
   '@prisma/engines': true
+  '@serialport/bindings-cpp': true
   prisma: true
