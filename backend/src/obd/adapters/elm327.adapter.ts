@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+﻿import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SerialPort } from 'serialport';
 import { ReadlineParser } from '@serialport/parser-readline';
@@ -15,6 +15,7 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
   private port: SerialPort | null = null;
   private parser: ReadlineParser | null = null;
   private connected = false;
+  private protocol: string | null = null;
   private readonly responseTimeout = ELM327_CONST.RESPONSE_TIMEOUT_MS;
 
   constructor(private readonly config: ConfigService) {}
@@ -68,12 +69,13 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
       });
 
       this.port.on('open', async () => {
-        this.logger.log('Serial port opened, initializing ELM327...');
+        this.logger.log('Serial port opened, detecting OBD protocol...');
         try {
-          await this.initializeElm327();
+          await this.detectProtocol();
+          this.protocol = this.protocol || 'auto';
           this.connected = true;
           cleanup();
-          this.logger.log('ELM327 initialized successfully');
+          this.logger.log(`OBD protocol detected: ${this.protocol}`);
           resolve();
         } catch (err) {
           cleanup();
@@ -92,6 +94,60 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
         }
       });
     });
+  }
+
+  private async detectProtocol(): Promise<void> {
+    const protocols: string[] = [
+      'auto',
+      'iso15765_can_11bit_500k',
+      'iso15765_can_29bit_500k',
+      'iso15765_can_11bit_250k',
+      'iso15765_can_29bit_250k',
+      'iso14230_kwp',
+      'iso9141_2',
+      'j1850_pwm',
+      'j1850_vpw',
+    ];
+
+    this.logger.debug('Resetting ELM327...');
+    await this.sendCommand(ELM327_CONST.CMD_RESET);
+    await this.sleep(ELM327_CONST.INIT_DELAY_RESET_MS);
+
+    for (const proto of protocols) {
+      try {
+        this.logger.debug(`Trying protocol: ${proto}`);
+
+        const response = await this.sendCommand(ELM327_CONST.CMD_SUPPORTED_PIDS);
+
+        if (this.isValidProtocolResponse(response)) {
+          this.protocol = proto;
+          this.logger.log(`OBD protocol auto-detected: ${this.protocol}`);
+          return;
+        }
+      } catch (err) {
+        this.logger.debug(`Protocol ${proto} failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    this.logger.warn(ELM327_CONST.ERR_PROTOCOL_NOT_FOUND);
+    this.protocol = 'auto';
+  }
+
+  private isValidProtocolResponse(response: string): boolean {
+    const trimmed = response.trim();
+    if (!trimmed) return false;
+
+    if (trimmed === ELM327_CONST.RESPONSE_ERROR) return false;
+    if (trimmed.startsWith(ELM327_CONST.RESPONSE_UNABLE_PREFIX)) return false;
+    if (trimmed.startsWith(ELM327_CONST.RESPONSE_STOPPED_PREFIX)) return false;
+
+    const hexMatch = trimmed.match(/^([0-9A-Fa-f]{2}\s*)+$/);
+    if (!hexMatch) return false;
+
+    const bytes = trimmed.split(/\s+/).filter((b) => b.length > 0);
+    if (bytes.length < 2) return false;
+
+    return true;
   }
 
   async disconnect(): Promise<void> {
