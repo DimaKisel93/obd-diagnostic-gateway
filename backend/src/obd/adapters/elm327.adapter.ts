@@ -12,10 +12,10 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
   readonly name = 'elm327';
 
   private readonly logger = new Logger(Elm327Adapter.name);
-  private port: SerialPort | null = null;
-  private parser: ReadlineParser | null = null;
-  private connected = false;
-  private protocol: string | null = null;
+  public port: SerialPort | null = null;
+  public parser: ReadlineParser | null = null;
+  public connected = false;
+  public protocol: string | null = null;
   private readonly responseTimeout = ELM327_CONST.RESPONSE_TIMEOUT_MS;
 
   constructor(private readonly config: ConfigService) {}
@@ -98,7 +98,7 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
     });
   }
 
-  private async attemptReconnect(lastError: string): Promise<void> {
+  public async attemptReconnect(lastError: string): Promise<void> {
     this.logger.warn(`Attempting reconnection after error: ${lastError}`);
 
     for (let attempt = 1; attempt <= ELM327_CONST.RETRY_MAX_ATTEMPTS; attempt++) {
@@ -126,7 +126,7 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
     }
   }
 
-  private async detectProtocol(): Promise<void> {
+  public async detectProtocol(): Promise<void> {
     const protocols: string[] = [
       'auto',
       'iso15765_can_11bit_500k',
@@ -163,7 +163,7 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
     this.protocol = 'auto';
   }
 
-  private isValidProtocolResponse(response: string): boolean {
+  public isValidProtocolResponse(response: string): boolean {
     const trimmed = response.trim();
     if (!trimmed) return false;
 
@@ -270,6 +270,10 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
   }
 
   async readPids(pids: string[] = DEFAULT_LIVE_PIDS): Promise<ObdReading[]> {
+    if (!this.connected) {
+      throw new Error(ELM327_CONST.ERR_PID_NOT_CONNECTED);
+    }
+
     const readings: ObdReading[] = [];
     for (const pid of pids) {
       try {
@@ -311,7 +315,7 @@ private async initializeElm327(): Promise<void> {
     }
   }
 
-  private async sendCommandWithTimeout(cmd: string, timeoutMs: number): Promise<string> {
+  public async sendCommandWithTimeout(cmd: string, timeoutMs: number): Promise<string> {
     if (!this.port || !this.parser) {
       throw new Error(ELM327_CONST.ERR_NOT_CONNECTED);
     }
@@ -369,8 +373,7 @@ private async initializeElm327(): Promise<void> {
       });
     });
   }
-
-  private async sendCommand(cmd: string): Promise<string> {
+  public async sendCommand(cmd: string): Promise<string> {
     if (!this.port || !this.parser) {
       throw new Error(ELM327_CONST.ERR_NOT_CONNECTED);
     }
@@ -448,7 +451,7 @@ private async initializeElm327(): Promise<void> {
     return bytes;
   }
 
-  private convertPidValue(pid: string, bytes: string[]): number {
+  public convertPidValue(pid: string, bytes: string[]): number {
     const firstByte = parseInt(bytes[0], 16);
     const secondByte = bytes.length > 1 ? parseInt(bytes[1], 16) : 0;
 
