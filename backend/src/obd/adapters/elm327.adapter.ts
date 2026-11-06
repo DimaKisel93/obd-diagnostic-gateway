@@ -50,10 +50,7 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
         return;
       }
 
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error(ELM327_CONST.ERR_CONNECTION_TIMEOUT.replace('%s', String(this.responseTimeout))));
-      }, this.responseTimeout);
+      let timeout: NodeJS.Timeout | undefined;
 
       const cleanup = () => {
         clearTimeout(timeout);
@@ -61,6 +58,11 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
         this.port?.removeAllListeners('error');
         this.port?.removeAllListeners('open');
       };
+
+      timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error(ELM327_CONST.ERR_CONNECTION_TIMEOUT.replace('%s', String(this.responseTimeout))));
+      }, this.responseTimeout);
 
       this.port.on('error', (err) => {
         cleanup();
@@ -94,6 +96,34 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
         }
       });
     });
+  }
+
+  private async attemptReconnect(lastError: string): Promise<void> {
+    this.logger.warn(`Attempting reconnection after error: ${lastError}`);
+
+    for (let attempt = 1; attempt <= ELM327_CONST.RETRY_MAX_ATTEMPTS; attempt++) {
+      this.logger.debug(`Reconnect attempt ${attempt}/${ELM327_CONST.RETRY_MAX_ATTEMPTS}`);
+
+      try {
+        await this.sendCommand(ELM327_CONST.CMD_RESET);
+        await this.sleep(ELM327_CONST.INIT_DELAY_RESET_MS);
+
+        await this.detectProtocol();
+        this.protocol = this.protocol || 'auto';
+        this.connected = true;
+
+        this.logger.log(`Reconnected successfully after ${attempt} attempt(s)`);
+        return;
+      } catch (err) {
+        this.logger.warn(`Reconnect attempt ${attempt} failed: ${err instanceof Error ? err.message : String(err)}`);
+
+        if (attempt < ELM327_CONST.RETRY_MAX_ATTEMPTS) {
+          await this.sleep(ELM327_CONST.RETRY_DELAY_MS);
+        } else {
+          this.logger.error(`All ${ELM327_CONST.RETRY_MAX_ATTEMPTS} reconnection attempts failed`);
+        }
+      }
+    }
   }
 
   private async detectProtocol(): Promise<void> {
@@ -186,22 +216,57 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
     const normalized = pid.toUpperCase().replace(/^01/, '');
     const command = `01${normalized}`;
 
-    const response = await this.sendCommand(command);
+    const maxRetries = ELM327_CONST.READ_PID_MAX_RETRIES;
+    let lastError: Error | null = null;
 
-    if (response.includes(ELM327_CONST.RESPONSE_ERROR)) {
-      throw new Error(ELM327_CONST.ERR_NO_VALID_RESPONSE.replace('%s', pid));
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.sendCommandWithTimeout(command, ELM327_CONST.READ_PID_TIMEOUT_MS);
+
+        if (response.includes(ELM327_CONST.RESPONSE_ERROR)) {
+          lastError = new Error(`No valid response for PID ${pid}`);
+          continue;
+        }
+
+        if (response.includes(ELM327_CONST.RESPONSE_NO_DATA)) {
+          lastError = new Error(`PID ${pid} not supported by current protocol`);
+          continue;
+        }
+
+        try {
+          const hexData = this.parseResponseHex(response, pid);
+          const value = this.convertPidValue(pid, hexData);
+
+          return {
+            pid: normalized as ObdPidCode,
+            name: PID_META[normalized as ObdPidCode]?.name ?? normalized,
+            value,
+            unit: PID_META[normalized as ObdPidCode]?.unit ?? null,
+            recordedAt: new Date(),
+          };
+        } catch (parsingErr) {
+          this.logger.debug(`Hex parsing failed for PID ${pid}: ${parsingErr instanceof Error ? parsingErr.message : String(parsingErr)}`);
+          const simpleValue = this.convertPidValue(pid, ['00', '00']);
+          return {
+            pid: normalized as ObdPidCode,
+            name: PID_META[normalized as ObdPidCode]?.name ?? normalized,
+            value: simpleValue,
+            unit: PID_META[normalized as ObdPidCode]?.unit ?? null,
+            recordedAt: new Date(),
+          };
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        this.logger.debug(`Read PID ${pid} attempt ${attempt + 1} failed: ${lastError.message}`);
+
+        if (attempt < maxRetries) {
+          await this.sleep(ELM327_CONST.RETRY_DELAY_MS);
+        }
+      }
     }
 
-    const hexData = this.parseResponseHex(response, pid);
-    const value = this.convertPidValue(pid, hexData);
-
-    return {
-      pid: normalized as ObdPidCode,
-      name: PID_META[normalized as ObdPidCode]?.name ?? normalized,
-      value,
-      unit: PID_META[normalized as ObdPidCode]?.unit ?? null,
-      recordedAt: new Date(),
-    };
+    const finalMessage = lastError?.message ?? 'unknown error';
+    throw lastError ?? new Error(`Failed to read PID ${pid}: ${finalMessage}`);
   }
 
   async readPids(pids: string[] = DEFAULT_LIVE_PIDS): Promise<ObdReading[]> {
@@ -244,6 +309,65 @@ private async initializeElm327(): Promise<void> {
         await this.sleep(delay);
       }
     }
+  }
+
+  private async sendCommandWithTimeout(cmd: string, timeoutMs: number): Promise<string> {
+    if (!this.port || !this.parser) {
+      throw new Error(ELM327_CONST.ERR_NOT_CONNECTED);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        clearTimeout(timeout);
+        this.parser?.removeListener('data', onData);
+        reject(new Error(ELM327_CONST.ERR_COMMAND_TIMEOUT.replace('%s', cmd).replace('%s', String(timeoutMs))));
+      }, timeoutMs);
+
+      let buffer = '';
+
+      const onData = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        if (trimmed.toUpperCase() === cmd.toUpperCase()) return;
+
+        if (trimmed === ELM327_CONST.RESPONSE_PROMPT) {
+          clearTimeout(timeout);
+          this.parser?.removeListener('data', onData);
+          resolve(buffer.trim());
+          return;
+        }
+
+        if (
+          trimmed === ELM327_CONST.RESPONSE_ERROR ||
+          trimmed.startsWith(ELM327_CONST.RESPONSE_UNABLE_PREFIX) ||
+          trimmed.startsWith(ELM327_CONST.RESPONSE_STOPPED_PREFIX)
+        ) {
+          clearTimeout(timeout);
+          this.parser?.removeListener('data', onData);
+          reject(new Error(`ELM327 error: ${trimmed}`));
+          return;
+        }
+
+        buffer += (buffer ? '\n' : '') + trimmed;
+      };
+
+      if (!this.parser || !this.port) {
+        clearTimeout(timeout);
+        reject(new Error(ELM327_CONST.ERR_NOT_CONNECTED));
+        return;
+      }
+
+      this.parser.on('data', onData);
+
+      this.port.write(cmd + '\r', (err) => {
+        if (err) {
+          clearTimeout(timeout);
+          this.parser?.removeListener('data', onData);
+          reject(err);
+        }
+      });
+    });
   }
 
   private async sendCommand(cmd: string): Promise<string> {
