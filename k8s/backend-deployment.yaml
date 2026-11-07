@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obd-gateway-backend
+  namespace: default
+  labels:
+    app: obd-gateway-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obd-gateway-backend
+  template:
+    metadata:
+      labels:
+        app: obd-gateway-backend
+    spec:
+      containers:
+        - name: backend
+          image: obd-gateway-backend:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: DATABASE_URL
+              value: postgresql://obd:obd@postgres:5432/obd_gateway
+            - name: OBD_SERIAL_PORT
+              value: /dev/ttyUSB0
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi

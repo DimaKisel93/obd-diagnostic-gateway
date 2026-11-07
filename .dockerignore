@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Test / Coverage
+coverage/
+**/coverage/
+
+# Nest
+.nest/
+
+# Prisma Client (generated)
+backend/src/generated/
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Kubernetes
+k8s/
+
+# Misc
+*.md
+!README.md
