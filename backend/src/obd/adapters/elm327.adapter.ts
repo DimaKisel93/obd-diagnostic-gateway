@@ -443,12 +443,14 @@ private async initializeElm327(): Promise<void> {
 
     const bytes = hexMatch[0].trim().split(/\s+/).filter((b) => b.length > 0);
 
+    const valueBytes = bytes.slice(2);
+
     const expectedMinBytes = 2;
-    if (bytes.length < expectedMinBytes) {
+    if (valueBytes.length < expectedMinBytes) {
       throw new Error(ELM327_CONST.ERR_INSUFFICIENT_DATA.replace('%s', pid));
     }
 
-    return bytes;
+    return valueBytes;
   }
 
   public convertPidValue(pid: string, bytes: string[]): number {
