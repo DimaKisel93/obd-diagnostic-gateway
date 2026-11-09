@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
-FROM node:22-alpine AS base
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /app
 
 # Install dependencies
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN groupadd -g 1001 -r nodejs
+RUN useradd -r -u 1001 -g nodejs nextjs
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -23,17 +23,18 @@ COPY . .
 RUN pnpm build
 
 # Production stage
-FROM node:22-alpine AS production
+FROM node:22-bookworm-slim AS production
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN groupadd -g 1001 -r nodejs
+RUN useradd -r -u 1001 -g nodejs nextjs
 
-RUN apk --no-cache update && apk --no-cache upgrade && apk add --no-cache curl
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy built app
 COPY --from=base /app/dist ./dist
