@@ -1,9 +1,11 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { StructuredLogger } from './logger/structured-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new StructuredLogger('Bootstrap');
+  const app = await NestFactory.create(AppModule, { logger });
   app.setGlobalPrefix('api');
   app.enableCors();
   app.useGlobalPipes(
@@ -14,8 +16,9 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`OBD Diagnostic Gateway listening on http://localhost:${process.env.PORT ?? 3000}/api`);
-  console.log(`WebSocket telemetry endpoint: ws://localhost:${process.env.PORT ?? 3000}/telemetry`);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  logger.log(`OBD Diagnostic Gateway listening on http://localhost:${port}/api`);
+  logger.log(`WebSocket telemetry endpoint: ws://localhost:${port}/telemetry`);
 }
 bootstrap();
