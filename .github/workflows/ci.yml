@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Build
+        run: pnpm build
+        
+      - name: Run tests
+        run: pnpm test
+        
+      - name: Lint
+        run: pnpm lint
+        
+      - name: Dependency vulnerability scan
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+        
+      - name: Docker security scan
+        run: |
+          # Install Trivy
+          wget -q https://github.com/aquasecurity/trivy/releases/download/v0.60.0/trivy_0.60.0_Linux-64bit.tar.gz
+          tar xzf trivy_0.60.0_Linux-64bit.tar.gz
+          sudo mv trivy /usr/local/bin/
+          
+          # Build Docker image
+          docker build -t obd-diagnostic-gateway:latest -f backend/Dockerfile .
+          
+          # Scan image for vulnerabilities
+          trivy image --exit-code 0 --severity HIGH,CRITICAL obd-diagnostic-gateway:latest
+        continue-on-error: true
