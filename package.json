@@ -23,6 +23,8 @@
     "vite": "^8.3.4"
   },
   "dependencies": {
+    "@nestjs/swagger": "^12.1.1",
+    "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0"
   }
 }
