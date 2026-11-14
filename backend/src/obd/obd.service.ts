@@ -4,17 +4,28 @@ import { ObdAdapter } from './interfaces/obd-adapter.interface';
 import { DEFAULT_LIVE_PIDS } from './types/pid';
 import { ObdConnectionState, ObdReading, ObdStatus } from './types/telemetry';
 import { AdapterModeService } from './services/adapter-mode.service';
+import {
+  CircuitBreaker,
+  CircuitBreakerState,
+} from '../common/circuit-breaker/circuit-breaker';
 
 @Injectable()
 export class ObdService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ObdService.name);
   private state: ObdConnectionState = 'disconnected';
   private lastError: string | null = null;
+  private readonly breaker: CircuitBreaker;
 
   constructor(
     private readonly adapterModeService: AdapterModeService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    this.breaker = new CircuitBreaker({
+      name: 'obd-adapter',
+      failureThreshold: Number(config.get('OBD_CB_FAILURE_THRESHOLD', '5')),
+      cooldownMs: Number(config.get('OBD_CB_COOLDOWN_MS', '30000')),
+    });
+  }
 
   private get adapter(): ObdAdapter {
     return this.adapterModeService.getCurrentAdapter();
@@ -49,6 +60,10 @@ export class ObdService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  getCircuitBreakerState(): CircuitBreakerState {
+    return this.breaker.currentState;
+  }
+
   async connect(): Promise<ObdStatus> {
     if (this.adapter.isConnected()) {
       this.state = 'connected';
@@ -78,9 +93,12 @@ export class ObdService implements OnModuleInit, OnModuleDestroy {
   }
 
   async readSample(pids: string[] = DEFAULT_LIVE_PIDS): Promise<ObdReading[]> {
-    if (!this.adapter.isConnected()) {
-      await this.connect();
-    }
-    return this.adapter.readPids(pids);
+
+    return this.breaker.execute(async () => {
+      if (!this.adapter.isConnected()) {
+        await this.connect();
+      }
+      return this.adapter.readPids(pids);
+    });
   }
 }

@@ -42,5 +42,27 @@ export function validateEnv(
     result.PORT = parsePositiveInt(config.PORT, 'PORT', 65535);
   }
 
+  if (config.THROTTLE_TTL_MS != null) {
+    result.THROTTLE_TTL_MS = parsePositiveInt(config.THROTTLE_TTL_MS, 'THROTTLE_TTL_MS');
+  }
+
+  if (config.THROTTLE_LIMIT != null) {
+    result.THROTTLE_LIMIT = parsePositiveInt(config.THROTTLE_LIMIT, 'THROTTLE_LIMIT');
+  }
+
+  if (config.OBD_CB_FAILURE_THRESHOLD != null) {
+    result.OBD_CB_FAILURE_THRESHOLD = parsePositiveInt(
+      config.OBD_CB_FAILURE_THRESHOLD,
+      'OBD_CB_FAILURE_THRESHOLD',
+    );
+  }
+
+  if (config.OBD_CB_COOLDOWN_MS != null) {
+    result.OBD_CB_COOLDOWN_MS = parsePositiveInt(
+      config.OBD_CB_COOLDOWN_MS,
+      'OBD_CB_COOLDOWN_MS',
+    );
+  }
+
   return result;
 }
