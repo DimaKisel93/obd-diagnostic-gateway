@@ -25,7 +25,13 @@ jobs:
           version: 12.3.4
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --ignore-scripts
+        working-directory: backend
+        
+      - name: Prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: pnpm prisma:generate
         working-directory: backend
         
       - name: Build
