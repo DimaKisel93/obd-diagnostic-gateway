@@ -19,8 +19,10 @@ jobs:
         with:
           node-version: '22'
           
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
 
       - name: Install dependencies
         run: pnpm install
@@ -28,15 +30,19 @@ jobs:
         
       - name: Build
         run: pnpm build
+        working-directory: backend
         
       - name: Run tests
         run: pnpm test
+        working-directory: backend
         
       - name: Lint
         run: pnpm lint
+        working-directory: backend
         
       - name: Dependency vulnerability scan
         run: pnpm audit --audit-level=high
+        working-directory: backend
         continue-on-error: true
         
       - name: Docker security scan
