@@ -3,6 +3,7 @@ import { AdapterModeService } from './services/adapter-mode.service';
 import { Elm327Adapter } from './adapters/elm327.adapter';
 import { MockElm327Adapter } from './adapters/mock-elm327.adapter';
 import { ObdService } from './obd.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 describe('ObdService', () => {
   let service: ObdService;
@@ -20,7 +21,12 @@ describe('ObdService', () => {
       config,
     );
 
-    service = new ObdService(adapterModeService, config);
+    const metrics = {
+      setObdCircuitBreakerOpen: jest.fn(),
+      observeObdReadSample: jest.fn(),
+    } as unknown as MetricsService;
+
+    service = new ObdService(adapterModeService, config, metrics);
   });
 
   it('connects via adapter and exposes status', async () => {

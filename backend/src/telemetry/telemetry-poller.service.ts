@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { ObdService } from '../obd/obd.service';
 import { TelemetryService } from './telemetry.service';
 import { TelemetryGateway } from './telemetry.gateway';
+import { MetricsService } from '../metrics/metrics.service';
 
 export interface PollerStatus {
   running: boolean;
@@ -33,6 +34,7 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
     private readonly obd: ObdService,
     private readonly telemetry: TelemetryService,
     private readonly gateway: TelemetryGateway,
+    private readonly metrics: MetricsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -139,9 +141,11 @@ export class TelemetryPollerService implements OnModuleInit, OnModuleDestroy {
       this.ticks += 1;
       this.lastTickAt = new Date();
       this.lastError = null;
+      this.metrics.incrementPollerTick();
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Poll tick failed: ${this.lastError}`);
+      this.metrics.incrementPollerError();
     } finally {
       this.ticking = false;
     }

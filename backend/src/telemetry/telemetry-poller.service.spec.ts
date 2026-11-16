@@ -3,6 +3,7 @@ import { ObdService } from '../obd/obd.service';
 import { TelemetryPollerService } from './telemetry-poller.service';
 import { TelemetryGateway } from './telemetry.gateway';
 import { TelemetryService } from './telemetry.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 describe('TelemetryPollerService', () => {
   let poller: TelemetryPollerService;
@@ -49,11 +50,17 @@ describe('TelemetryPollerService', () => {
       }),
     } as unknown as ConfigService;
 
+    const metrics = {
+      incrementPollerTick: jest.fn(),
+      incrementPollerError: jest.fn(),
+    } as unknown as MetricsService;
+
     poller = new TelemetryPollerService(
       config,
       obd as unknown as ObdService,
       telemetry as unknown as TelemetryService,
       gateway as unknown as TelemetryGateway,
+      metrics,
     );
   });
 

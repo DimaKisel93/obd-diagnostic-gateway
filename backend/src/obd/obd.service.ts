@@ -8,6 +8,7 @@ import {
   CircuitBreaker,
   CircuitBreakerState,
 } from '../common/circuit-breaker/circuit-breaker';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
 export class ObdService implements OnModuleInit, OnModuleDestroy {
@@ -19,6 +20,7 @@ export class ObdService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly adapterModeService: AdapterModeService,
     private readonly config: ConfigService,
+    private readonly metrics: MetricsService,
   ) {
     this.breaker = new CircuitBreaker({
       name: 'obd-adapter',
@@ -93,12 +95,28 @@ export class ObdService implements OnModuleInit, OnModuleDestroy {
   }
 
   async readSample(pids: string[] = DEFAULT_LIVE_PIDS): Promise<ObdReading[]> {
+    const start = process.hrtime.bigint();
+    try {
+      const readings = await this.breaker.execute(async () => {
+        if (!this.adapter.isConnected()) {
+          await this.connect();
+        }
+        return this.adapter.readPids(pids);
+      });
 
-    return this.breaker.execute(async () => {
-      if (!this.adapter.isConnected()) {
-        await this.connect();
-      }
-      return this.adapter.readPids(pids);
-    });
+      this.metrics.setObdCircuitBreakerOpen(false);
+      this.metrics.observeObdReadSample(
+        'success',
+        Number(process.hrtime.bigint() - start) / 1e9,
+      );
+      return readings;
+    } catch (error) {
+      this.metrics.setObdCircuitBreakerOpen(this.breaker.isOpen);
+      this.metrics.observeObdReadSample(
+        'error',
+        Number(process.hrtime.bigint() - start) / 1e9,
+      );
+      throw error;
+    }
   }
 }

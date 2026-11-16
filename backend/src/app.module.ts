@@ -11,6 +11,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
 import { validateEnv } from './env/env-validator';
 import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
 import { RATE_LIMIT_DEFAULTS } from './common/constants/rate-limit';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { RATE_LIMIT_DEFAULTS } from './common/constants/rate-limit';
         setHeaders: true,
       }),
     }),
+    MetricsModule,
     PrismaModule,
     ObdModule,
     TelemetryModule,
