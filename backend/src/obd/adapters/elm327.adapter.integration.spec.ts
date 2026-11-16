@@ -48,7 +48,7 @@ describe('Elm327Adapter Integration', () => {
       removeListener: jest.fn(),
     };
 
-    mockParser = new (require('events').EventEmitter)() as any;
+    mockParser = new (jest.requireActual('events').EventEmitter)() as any;
     mockParser.removeAllListeners = jest.fn();
     mockParser.removeListener = jest.fn();
 
@@ -125,3 +125,4 @@ describe('Elm327Adapter Integration', () => {
     }, 10000);
   });
 });
+

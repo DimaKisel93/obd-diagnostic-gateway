@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ObdService } from '../obd/obd.service';
 import { LatestQueryDto } from './dto/latest.query';
 import { TelemetryPollerService } from '../telemetry/telemetry-poller.service';

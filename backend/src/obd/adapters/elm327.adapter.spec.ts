@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events';
 import { Elm327Adapter } from './elm327.adapter';
 import { ConfigService } from '@nestjs/config';
 import { ObdPid } from '../types/pid';
@@ -206,8 +207,8 @@ describe('Elm327Adapter', () => {
 
     it('should resolve with buffer when prompt received', async () => {
       adapter.connected = true;
-      adapter.parser = new (require('events').EventEmitter)();
       adapter.port = { write: jest.fn() } as unknown as SerialPort;
+      adapter.parser = new EventEmitter() as unknown as ReadlineParser;
 
       const promise = adapter.sendCommandWithTimeout('ATZ', 1000);
       adapter.parser?.emit('data', '>');
@@ -217,8 +218,8 @@ describe('Elm327Adapter', () => {
 
     it('should reject on timeout', async () => {
       adapter.connected = true;
-      adapter.parser = new (require('events').EventEmitter)();
       adapter.port = { write: jest.fn() } as unknown as SerialPort;
+      adapter.parser = new EventEmitter() as unknown as ReadlineParser;
 
       const promise = adapter.sendCommandWithTimeout('ATZ', 50);
       await expect(promise).rejects.toThrow('timeout after');
@@ -226,8 +227,8 @@ describe('Elm327Adapter', () => {
 
     it('should reject on ELM327 error response', async () => {
       adapter.connected = true;
-      adapter.parser = new (require('events').EventEmitter)();
       adapter.port = { write: jest.fn() } as unknown as SerialPort;
+      adapter.parser = new EventEmitter() as unknown as ReadlineParser;
 
       const promise = adapter.sendCommandWithTimeout('ATZ', 1000);
       adapter.parser?.emit('data', 'ERROR');
@@ -264,3 +265,4 @@ describe('Elm327Adapter', () => {
     });
   });
 });
+

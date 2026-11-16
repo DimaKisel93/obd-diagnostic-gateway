@@ -50,7 +50,8 @@ export class Elm327Adapter implements ObdAdapter, OnModuleDestroy {
         return;
       }
 
-      let timeout: NodeJS.Timeout | undefined;
+      // eslint-disable-next-line prefer-const
+      let timeout: NodeJS.Timeout;
 
       const cleanup = () => {
         clearTimeout(timeout);
